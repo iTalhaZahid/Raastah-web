@@ -8,11 +8,11 @@ const metropolis = localFont({
   src: [
     {
       path: "./fonts/Metropolis/Metropolis-ExtraBold.woff",
-      weight: "800 900",
+      weight: "900",
     },
     {
       path: "./fonts/Metropolis/Metropolis-Bold.woff",
-      weight: "600 700",
+      weight: "700",
     },
     {
       path: "./fonts/Metropolis/Metropolis-Medium.woff",
@@ -20,7 +20,7 @@ const metropolis = localFont({
     },
     {
       path: "./fonts/Metropolis/Metropolis-Regular.woff",
-      weight: "100 400",
+      weight: "400",
     },
   ],
   variable: "--font-metropolis",
@@ -41,7 +41,7 @@ export default function RootLayout({
       lang="en"
       className={`${metropolis.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className={`${metropolis.className} min-h-full flex flex-col`}>{children}</body>
     </html>
   );
 }
