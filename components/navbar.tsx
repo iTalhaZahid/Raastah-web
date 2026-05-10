@@ -5,15 +5,11 @@ export function Navbar() {
   return (
     <header className="absolute top-0 left-0 right-0 z-50 w-full pt-6">
       <div className="container flex h-16 max-w-[1200px] mx-auto items-center justify-between px-4 md:px-8">
-        
-        {/* Logo */}
+
         <Link href="/" className="flex items-center">
-          <div className="w-12 h-12 bg-[#d4ff00] rounded-[14px] flex items-center justify-center shadow-lg">
-            {/* Custom logo icon based on the inspiration */}
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-black">
-              <path d="M4 6h16M4 12h16M4 18h10" />
-            </svg>
-          </div>
+          <span className="text-3xl font-bold tracking-tight text-white">
+            Raastah
+          </span>
         </Link>
 
         {/* Center Nav Pills */}
@@ -27,15 +23,15 @@ export function Navbar() {
           <Link href="#features" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white rounded-full transition-colors">
             Features
           </Link>
-          <Link href="#testimonial" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white rounded-full transition-colors">
-            Testimonial
+          <Link href="#safety" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white rounded-full transition-colors">
+            Track Ride
           </Link>
         </nav>
 
         {/* Right CTA */}
         <div className="flex items-center">
-          <Link 
-            href="#download" 
+          <Link
+            href="#download"
             className="flex h-11 items-center justify-center gap-2 rounded-full bg-[#d4ff00] px-6 text-sm font-semibold text-black transition-colors hover:bg-[#c4ec00] shadow-[0_0_15px_rgba(212,255,0,0.3)]"
           >
             <Play className="w-4 h-4 fill-black" />
