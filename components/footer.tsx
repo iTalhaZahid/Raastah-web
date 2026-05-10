@@ -1,34 +1,58 @@
-import Link from "next/link";
+import { Star } from "lucide-react";
 
-export function Footer() {
+export default function Footer() {
   return (
-    <footer className="border-t border-white/10 py-12 bg-[#0a0a0a] text-white">
-      <div className="container max-w-6xl mx-auto px-4 md:px-8 grid grid-cols-1 md:grid-cols-4 gap-8">
-        <div className="md:col-span-2">
-          <span className="font-bold text-xl tracking-tight">Raastah</span>
-          <p className="mt-4 text-sm text-muted-foreground max-w-xs">
-            The student ride-sharing platform. Share the ride, split the cost, and save the environment.
-          </p>
+    <footer className="font-sans bg-[#050505] px-4 pb-10 pt-12 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-10 border-t border-white/10 pt-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+          <div>
+            <div className="flex items-center gap-3">
+              <div>
+                <h3 className="text-2xl font-bold tracking-tight">Raastah</h3>
+                <p className="text-xs text-zinc-500">Every Road. Your Way.</p>
+              </div>
+            </div>
+
+            <p className="mt-8 text-sm text-zinc-500">
+              © {new Date().getFullYear()} Raastah. All rights reserved.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="mb-4 text-sm font-semibold text-white">Quick Links</h4>
+            <ul className="space-y-3 text-sm text-zinc-400">
+              <li><a href="#home" className="transition hover:text-[#d4ff00]">Home</a></li>
+              <li><a href="#how-it-works" className="transition hover:text-[#d4ff00]">How It Works</a></li>
+              <li><a href="#features" className="transition hover:text-[#d4ff00]">Features</a></li>
+              <li><a href="#safety" className="transition hover:text-[#d4ff00]">Safety</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="mb-4 text-sm font-semibold text-white">Support</h4>
+            <ul className="space-y-3 text-sm text-zinc-400">
+              <li><a href="#" className="transition hover:text-[#d4ff00]">Help Center</a></li>
+              <li><a href="#" className="transition hover:text-[#d4ff00]">Contact Us</a></li>
+              <li><a href="#" className="transition hover:text-[#d4ff00]">Privacy Policy</a></li>
+              <li><a href="#" className="transition hover:text-[#d4ff00]">Terms of Service</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="mb-4 text-sm font-semibold text-white">Follow Us</h4>
+            <div className="flex gap-3">
+              {[Star, Star].map((Icon, index) => (
+                <a
+                  key={index}
+                  href="#"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-zinc-400 transition hover:bg-[#d4ff00] hover:text-black"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
-        <div>
-          <h3 className="font-semibold mb-4">Product</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><Link href="#features" className="hover:text-primary">Features</Link></li>
-            <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li>
-            <li><Link href="#safety" className="hover:text-primary">Safety</Link></li>
-          </ul>
-        </div>
-        <div>
-          <h3 className="font-semibold mb-4">Company</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><Link href="#about" className="hover:text-primary">About</Link></li>
-            <li><Link href="#contact" className="hover:text-primary">Contact</Link></li>
-            <li><Link href="#legal" className="hover:text-primary">Legal</Link></li>
-          </ul>
-        </div>
-      </div>
-      <div className="container max-w-6xl mx-auto px-4 md:px-8 mt-12 pt-8 border-t text-sm text-muted-foreground flex flex-col sm:flex-row justify-between items-center">
-        <p>© {new Date().getFullYear()} Raastah. All rights reserved.</p>
       </div>
     </footer>
   );
