@@ -1,18 +1,50 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test('has title', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+const devices = [
+  {
+    name: 'mobile',
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  },
+  {
+    name: 'tablet',
+    viewport: { width: 768, height: 1024 },
+    isMobile: false,
+    hasTouch: true,
+  },
+  {
+    name: 'ipad',
+    viewport: { width: 820, height: 1180 },
+    isMobile: false,
+    hasTouch: true,
+  },
+  {
+    name: 'laptop',
+    viewport: { width: 1366, height: 768 },
+    isMobile: false,
+    hasTouch: false,
+  },
+];
 
-  // Expect a title "to contain" a substring.
-  await expect(page).toHaveTitle(/Playwright/);
-});
+for (const device of devices) {
+  test.describe(`homepage on ${device.name}`, () => {
+    test.use({
+      viewport: device.viewport,
+      isMobile: device.isMobile,
+      hasTouch: device.hasTouch,
+    });
 
-test('get started link', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+    test(`renders correctly on ${device.name}`, async ({ page }) => {
+      await page.goto('/');
 
-  // Click the get started link.
-  await page.getByRole('link', { name: 'Get started' }).click();
+      await expect(page.getByRole('heading', { name: /Your Ride Secured in Seconds/i })).toBeVisible();
+      await expect(page.getByText(/Download Latest Version Of The App From/i)).toBeVisible();
 
-  // Expects page to have a heading with the name of Installation.
-  await expect(page.getByRole('heading', { name: 'Installation' })).toBeVisible();
-});
+      const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+      const viewportWidth = page.viewportSize()?.width ?? 0;
+
+      expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 2);
+    });
+  });
+}
