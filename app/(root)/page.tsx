@@ -1,17 +1,17 @@
 import Hero from "@/components/Home/Hero";
 import Features from "@/components/Home/Features";
 import HowRaastahWorks from "@/components/Home/HowRaastahWorks";
-import DownloadSection from "@/components/Home/DownloadSection";
 import TrackRideSection from "@/components/Home/TrackRideSection";
+import DownloadSection from "@/components/Home/DownloadSection";
 
 export default function Home() {
   return (
-    <>
+    <div className="bg-black">
       <Hero />
       <HowRaastahWorks />
       <TrackRideSection />
       <Features />
       <DownloadSection />
-    </>
+    </div>
   );
 }

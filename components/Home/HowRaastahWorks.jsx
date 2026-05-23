@@ -38,7 +38,7 @@ export default function HowRaastahWorks() {
         </FadeUp>
 
         <div className="relative grid gap-10 md:grid-cols-2 lg:grid-cols-4">
-          <div className="absolute left-[12%] right-[12%] top-[48px] hidden border-t border-dashed border-white/15 lg:block" />
+          <div className="absolute left-[12%] right-[12%] top-12 hidden border-t border-dashed border-white/15 lg:block" />
 
           {steps.map((step, index) => (
             <FadeUp key={step.title} delay={0.15 + index * 0.1}>
@@ -51,7 +51,7 @@ export default function HowRaastahWorks() {
                   {step.title}
                 </h3>
 
-                <p className="mx-auto max-w-[220px] text-sm leading-relaxed text-zinc-400">
+                <p className="mx-auto max-w-55 text-sm leading-relaxed text-zinc-400">
                   {step.description}
                 </p>
               </div>

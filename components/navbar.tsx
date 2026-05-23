@@ -4,7 +4,7 @@ import { Play } from "lucide-react";
 export function Navbar() {
   return (
     <header className="absolute top-0 left-0 right-0 z-50 w-full pt-6">
-      <div className="container flex h-16 max-w-[1200px] mx-auto items-center justify-between px-4 md:px-8">
+      <div className="container flex h-16 max-w-300 mx-auto items-center justify-between px-4 md:px-8">
 
         <Link href="/" className="flex items-center">
           <span className="text-3xl font-bold tracking-tight text-white">
