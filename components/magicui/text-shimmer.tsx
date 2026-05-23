@@ -13,7 +13,7 @@ export function TextShimmer({ children, className }: TextShimmerProps) {
   return (
     <motion.span
       className={cn(
-        "inline-block bg-[linear-gradient(110deg,#d4ff00,45%,#fbffd7,55%,#d4ff00)] bg-[length:220%_100%] bg-clip-text text-transparent",
+        "inline-block bg-[linear-gradient(110deg,#d4ff00,45%,#fbffd7,55%,#d4ff00)] bg-size-[220%_100%] bg-clip-text text-transparent",
         className
       )}
       initial={{ backgroundPosition: "100% 50%" }}

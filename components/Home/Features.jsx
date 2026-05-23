@@ -39,7 +39,7 @@ function Features() {
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-3">
                     {features.map((feature, i) => (
                         <FadeUp key={feature.title} delay={0.1 * i} className="h-full">
-                            <Card className="group h-full rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-white backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#d4ff00]/40 hover:bg-white/[0.07]">
+                            <Card className="group h-full rounded-2xl border border-white/10 bg-white/4 p-6 text-white backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#d4ff00]/40 hover:bg-white/[0.07]">
                                 <CardHeader>
                                     <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4ff00]/10 transition-colors group-hover:bg-[#d4ff00]/20">
                                         <feature.icon className="h-6 w-6 text-[#d4ff00]" />

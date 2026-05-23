@@ -23,7 +23,7 @@ const trackingFeatures = [
 export default function TrackRideSection() {
   return (
     <section id="safety" className="relative overflow-hidden bg-[#050505] px-4 py-20 text-white sm:px-6 sm:py-24 lg:px-8">
-      <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d4ff00]/10 blur-[120px]" />
+      <div className="absolute left-1/2 top-1/2 h-105 w-105 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d4ff00]/10 blur-[120px]" />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <FadeUp delay={0.1}>
@@ -33,7 +33,7 @@ export default function TrackRideSection() {
                 alt="Raastah live tracking screen"
                 width={320}
                 height={640}
-                className="h-auto w-[240px] sm:w-[280px] lg:w-[320px]"
+                className="h-auto w-60 sm:w-70 lg:w-[320px]"
                 style={{ height: "auto",width: "auto" }}
               />
           </div>
