@@ -4,12 +4,12 @@ import Image from "next/image";
 
 function Hero() {
     return (
-        <section id="home" className="relative flex min-h-screen flex-col overflow-hidden bg-[#050505] pb-0 pt-32 text-white selection:bg-[#d4ff00]/30">
+        <section id="home" className="relative flex flex-col overflow-hidden pb-0 pt-32 text-white selection:bg-[#d4ff00]/30">
 
-            <div className="container max-w-6xl mx-auto px-6 md:px-12 text-center relative z-10 flex flex-col items-center">
+            <div className="container max-w-6xl mx-auto px-6 md:px-12  md:py-4 text-center relative flex flex-col items-center">
 
                 <FadeUp delay={0.1}>
-                    <h1 className="mx-auto  max-w-5xl text-center text-[48px] font-extrabold leading-[0.95] tracking-[-0.06em] sm:text-6xl md:mb-6 md:text-7xl lg:text-[96px]">
+                    <h1 className="mx-auto max-w-5xl text-center text-[48px] font-extrabold leading-[0.95] tracking-[-0.06em] sm:text-6xl md:mb-6 md:text-7xl lg:text-[96px]">
                         <span className="block text-white">Your Ride</span>
                         <span className="block">
                             <TextShimmer className="drop-shadow-[0_0_24px_rgba(212,255,0,0.35)]">
@@ -20,7 +20,7 @@ function Hero() {
                     </h1>
                 </FadeUp>
                 <FadeUp delay={0.2}>
-                    <p className="mx-auto mb-6 max-w-2xl text-center text-sm font-medium leading-relaxed text-[#9d9d9d] sm:text-base md:text-lg">
+                    <p className="mx-auto m-5 max-w-2xl text-center text-sm font-medium leading-relaxed text-[#9d9d9d] sm:text-base md:text-lg md:mt-0 md:mb-12">
                         Connect with trusted Students through verified rides making every trip safer, faster, and stress-free.
                     </p>
                 </FadeUp>
