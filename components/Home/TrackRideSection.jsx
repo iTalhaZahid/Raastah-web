@@ -22,10 +22,11 @@ const trackingFeatures = [
 
 export default function TrackRideSection() {
   return (
-    <section id="safety" className="relative overflow-hidden bg-[#050505] px-4 py-20 text-white sm:px-6 sm:py-24 lg:px-8">
-      <div className="absolute left-1/2 top-1/2 h-105 w-105 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d4ff00]/10 blur-[120px]" />
+    <section id="safety" className="relative overflow-hidden bg-[#050505] px-4 text-white sm:px-6 py-0 lg:px-8">
+      <div className="absolute xl:left-72 xl:top-1/2 top-60 left-50 md:left-96 lg:left-60 lg:top-70 h-105 w-105 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(212,255,0,0.18)_0%,rgba(212,255,0,0.08)_35%,transparent_70%)]
+    blur-[50px]" />
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
+      <div className="relative mx-auto grid max-w-7xl items-center gap-12 md:gap-20 lg:grid-cols-2 lg:gap-16">
         <FadeUp delay={0.1}>
           <div className="flex justify-center px-2 sm:px-6 lg:justify-start lg:px-8">
               <Image
@@ -39,7 +40,7 @@ export default function TrackRideSection() {
           </div>
         </FadeUp>
 
-        <div>
+        <div className="px-4">
           <FadeUp delay={0.15}>
             <p className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-[#d4ff00]">
               Real-time Experience
