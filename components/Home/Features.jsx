@@ -25,10 +25,10 @@ const features = [
 
 function Features() {
     return (
-        <section id="features" className="relative bg-[#050505] py-24 text-white md:py-32">
-            <div className="container max-w-6xl mx-auto px-4 sm:px-6 md:px-12">
+        <section id="features" className="relative bg-[#050505] py-24 md:mt-6  text-white    ">
+            <div className="container max-w-6xl mx-auto px-4 sm:px-6 md:px-12 xl:mb-10">
                 <FadeUp delay={0.05}>
-                    <div className="text-center mb-16">
+                    <div className="text-center mb-8">
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Why Choose Raastah?</h2>
                     <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                         Built specifically for students, prioritizing safety, affordability, and convenience.
