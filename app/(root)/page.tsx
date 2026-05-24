@@ -6,7 +6,7 @@ import DownloadSection from "@/components/Home/DownloadSection";
 
 export default function Home() {
   return (
-    <div className="bg-black">
+    <div className="bg-[#050505]">
       <Hero />
       <HowRaastahWorks />
       <TrackRideSection />
