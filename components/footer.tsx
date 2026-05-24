@@ -2,9 +2,9 @@ import { Star } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="font-sans bg-[#050505] px-4 pb-10 pt-12 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid gap-10 border-t border-white/10 pt-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+    <footer className="font-sans bg-[#050505] px-4 pb-10 pt-12 text-white sm:px-6 md:pb-14 md:pt-0 lg:px-8">
+      <div className="mx-auto max-w-7xl xl:pt-10 ">
+        <div className="grid gap-10 pt-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-3">
               <div>
