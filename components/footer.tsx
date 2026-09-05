@@ -21,10 +21,10 @@ export default function Footer() {
           <div>
             <h4 className="mb-4 text-sm font-semibold text-white">Quick Links</h4>
             <ul className="space-y-3 text-sm text-zinc-400">
-              <li><a href="#home" className="transition hover:text-[#d4ff00]">Home</a></li>
-              <li><a href="#how-it-works" className="transition hover:text-[#d4ff00]">How It Works</a></li>
-              <li><a href="#features" className="transition hover:text-[#d4ff00]">Features</a></li>
-              <li><a href="#safety" className="transition hover:text-[#d4ff00]">Safety</a></li>
+              <li><a href="/#home" className="transition hover:text-[#d4ff00]">Home</a></li>
+              <li><a href="/#how-it-works" className="transition hover:text-[#d4ff00]">How It Works</a></li>
+              <li><a href="/#features" className="transition hover:text-[#d4ff00]">Features</a></li>
+              <li><a href="/#safety" className="transition hover:text-[#d4ff00]">Safety</a></li>
             </ul>
           </div>
 
@@ -33,8 +33,8 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-zinc-400">
               <li><a href="#" className="transition hover:text-[#d4ff00]">Help Center</a></li>
               <li><a href="#" className="transition hover:text-[#d4ff00]">Contact Us</a></li>
-              <li><a href="#" className="transition hover:text-[#d4ff00]">Privacy Policy</a></li>
-              <li><a href="#" className="transition hover:text-[#d4ff00]">Terms of Service</a></li>
+              <li><a href="/privacy-policy" className="transition hover:text-[#d4ff00]">Privacy Policy</a></li>
+              <li><a href="/terms-and-conditions" className="transition hover:text-[#d4ff00]">Terms and Conditions</a></li>
             </ul>
           </div>
 
