@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Star } from "lucide-react";
 
 export default function Footer() {
@@ -21,10 +22,10 @@ export default function Footer() {
           <div>
             <h4 className="mb-4 text-sm font-semibold text-white">Quick Links</h4>
             <ul className="space-y-3 text-sm text-zinc-400">
-              <li><a href="/#home" className="transition hover:text-[#d4ff00]">Home</a></li>
-              <li><a href="/#how-it-works" className="transition hover:text-[#d4ff00]">How It Works</a></li>
-              <li><a href="/#features" className="transition hover:text-[#d4ff00]">Features</a></li>
-              <li><a href="/#safety" className="transition hover:text-[#d4ff00]">Safety</a></li>
+              <li><Link href="/#home" className="transition hover:text-[#d4ff00]">Home</Link></li>
+              <li><Link href="/#how-it-works" className="transition hover:text-[#d4ff00]">How It Works</Link></li>
+              <li><Link href="/#features" className="transition hover:text-[#d4ff00]">Features</Link></li>
+              <li><Link href="/#safety" className="transition hover:text-[#d4ff00]">Safety</Link></li>
             </ul>
           </div>
 
@@ -33,8 +34,8 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-zinc-400">
               <li><a href="#" className="transition hover:text-[#d4ff00]">Help Center</a></li>
               <li><a href="#" className="transition hover:text-[#d4ff00]">Contact Us</a></li>
-              <li><a href="/privacy-policy" className="transition hover:text-[#d4ff00]">Privacy Policy</a></li>
-              <li><a href="/terms-and-conditions" className="transition hover:text-[#d4ff00]">Terms and Conditions</a></li>
+              <li><Link href="/privacy-policy" className="transition hover:text-[#d4ff00]">Privacy Policy</Link></li>
+              <li><Link href="/terms-and-conditions" className="transition hover:text-[#d4ff00]">Terms and Conditions</Link></li>
             </ul>
           </div>
 

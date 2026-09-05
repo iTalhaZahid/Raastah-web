@@ -19,7 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
     }
   },
   "include": [
@@ -28,7 +28,10 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
-, "components/footer.tsx"  ],
+    "**/*.mts",
+    "components/footer.tsx",
+    ".next-admin-test/types/**/*.ts",
+    ".next-admin-test/dev/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }
