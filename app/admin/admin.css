@@ -1,0 +1,81 @@
+.admin {
+  --admin-lime: #d4ff00;
+  min-height: 100vh;
+  background: #090b0a;
+  color: #f5f6f5;
+  font-size: 14px;
+  color-scheme: dark;
+}
+.admin * { box-sizing: border-box; }
+.admin a { text-underline-offset: 4px; }
+.admin a:hover { color: var(--admin-lime); }
+.admin :is(button, input, select, textarea, a):focus-visible { outline: 2px solid var(--admin-lime); outline-offset: 4px; }
+.admin button, .admin .button-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: 1px solid #343b36; border-radius: 10px; background: #1b211d; color: #f5f6f5; font-weight: 500; cursor: pointer; }
+.admin button:hover { background: #29322c; }
+.admin button.primary { background: var(--admin-lime); color: #121600; border-color: var(--admin-lime); }
+.admin button.danger { color: #ffb6b1; border-color: #743731; }
+.admin button:disabled { opacity: .45; cursor: not-allowed; }
+.admin input:not([type=checkbox]), .admin select, .admin textarea { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #39423b; border-radius: 9px; background: #0e1310; color: #f5f6f5; }
+.admin textarea { min-height: 96px; resize: vertical; }
+.admin label { display: grid; gap: 8px; color: #cad2cc; }
+.admin fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.admin h1 { font-size: clamp(28px, 4vw, 38px); font-weight: 700; letter-spacing: -1px; }
+.admin h2 { font-size: 20px; font-weight: 700; }
+.admin h3 { font-size: 16px; font-weight: 700; }
+.admin .muted { color: #a5b0a8; line-height: 1.7; }
+.admin .eyebrow { color: var(--admin-lime); letter-spacing: 2px; font-size: 11px; text-transform: uppercase; font-weight: 700; }
+.admin .stack { display: grid; gap: 20px; }
+.admin .row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.admin .between { justify-content: space-between; }
+.admin .panel { min-width: 0; padding: 24px; border: 1px solid #29322c; border-radius: 16px; background: #111713; }
+.admin .notice { padding: 14px 18px; border: 1px solid #465525; border-radius: 12px; background: #1b2410; color: #dbefb3; overflow-wrap: anywhere; }
+.admin .error { border-color: #793c37; background: #291815; color: #ffb6b1; }
+.admin .badge { display: inline-block; max-width: 100%; padding: 5px 9px; border-radius: 6px; background: #26352b; color: #c8e7ce; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+.admin .badge[data-status=REJECTED], .admin .badge[data-status=FAILED], .admin .badge[data-status=CANCELLED] { background: #3b2421; color: #ffb6b1; }
+.admin .badge[data-status=PENDING], .admin .badge[data-status=SUBMITTED], .admin .badge[data-status=UNDER_REVIEW] { background: #38311b; color: #f7d68c; }
+.admin .shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 100vh; }
+.admin aside { padding: 32px 20px; background: #0e130f; border-right: 1px solid #29322c; }
+.admin .brand { font-size: 27px; font-weight: 700; letter-spacing: -1px; }
+.admin nav { display: grid; gap: 8px; margin-top: 38px; }
+.admin nav button { justify-content: flex-start; border: 0; background: transparent; color: #a5b0a8; }
+.admin nav button[aria-current=page] { background: #d4ff0017; color: var(--admin-lime); }
+.admin .workspace { min-width: 0; padding: 32px clamp(16px, 4vw, 52px); }
+.admin .topbar { padding-bottom: 24px; margin-bottom: 32px; border-bottom: 1px solid #29322c; }
+.admin .content { max-width: 1250px; margin-inline: auto; }
+.admin .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.admin .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.admin .metric { font-size: 30px; font-weight: 700; }
+.admin .table-wrap { overflow-x: auto; }
+.admin table { width: 100%; border-collapse: collapse; text-align: left; }
+.admin th { color: #a5b0a8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
+.admin td, .admin th { padding: 16px 12px; border-bottom: 1px solid #29322c; }
+.admin td { overflow-wrap: anywhere; }
+.admin tbody tr:last-child td { border-bottom: 0; }
+.admin .table-wrap table { min-width: 620px; }
+.admin .id { font-family: monospace; font-size: 12px; overflow-wrap: anywhere; }
+.admin .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.admin dt { color: #a5b0a8; margin-bottom: 5px; }
+.admin dd { overflow-wrap: anywhere; }
+.admin .login { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(ellipse at top left, #253016 0%, #090b0a 55%); }
+.admin .login-card { width: 100%; max-width: 450px; padding: 36px; }
+.admin .login-card form { margin-top: 28px; }
+.admin .toolbar label { flex: 1; min-width: 180px; }
+.admin .empty { padding: 40px 12px; text-align: center; color: #a5b0a8; }
+.admin .message { padding: 16px; border-left: 2px solid #647745; background: #172019; overflow-wrap: anywhere; }
+.admin .skip { position: absolute; left: 12px; top: -100px; }
+.admin .skip:focus { top: 12px; z-index: 10; background: #111713; padding: 12px; }
+.admin.admin-dialog { min-height: 0; background: transparent; }
+.admin .confirmation-backdrop { position: fixed; inset: 0; z-index: 100; background: #000a; backdrop-filter: blur(4px); }
+.admin .confirmation-popup { position: fixed; top: 50%; left: 50%; z-index: 101; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; box-shadow: 0 24px 80px #0008; }
+.admin .confirmation-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin .confirmation-actions { justify-content: flex-end; }
+@media (max-width: 800px) {
+  .admin .shell { grid-template-columns: minmax(0, 1fr); }
+  .admin aside { padding: 18px 16px; border-right: 0; border-bottom: 1px solid #29322c; }
+  .admin nav { display: flex; flex-wrap: wrap; margin-top: 18px; gap: 4px; }
+  .admin nav button { padding: 10px; }
+  .admin .grid, .admin .details { grid-template-columns: minmax(0, 1fr); }
+  .admin .panel { padding: 18px; }
+  .admin .metrics { grid-template-columns: minmax(0, 1fr); }
+  .admin .workspace { padding-top: 20px; }
+}
