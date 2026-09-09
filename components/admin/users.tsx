@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { Dialog } from "@base-ui/react/dialog";
 import { roles, safeDocumentUrl, type Ride, type UserDetail, type UserRow, type VerificationUser } from "@/lib/admin-api";
 import { Badge, date, ResourceState, useAdmin, useResource } from "./dashboard";
 
@@ -12,14 +13,61 @@ export function UsersPanel({ staff = false }: { staff?: boolean }) {
     : <div className="stack">
       {staff && <section className="panel stack">
         <h2>Manage staff access</h2>
-        <p className="muted">Select a registered account below to view its current role and appoint a moderator or remove staff access. Role changes replace existing roles and sign the account out on all devices.</p>
+        <p className="muted">Select an admin or moderator below to manage staff access, or find a registered account by ID to appoint it. Role changes replace existing roles and sign the account out on all devices.</p>
         <form className="row toolbar" onSubmit={(event) => { event.preventDefault(); const id = String(new FormData(event.currentTarget).get("authUserId") ?? "").trim(); if (id) setSelected(id); }}>
           <label>Find by Auth user ID<input name="authUserId" required pattern=".*\S.*" disabled={blocked} placeholder="Look up an account outside the recent list" /></label>
           <button type="submit" disabled={blocked}>Find account</button>
         </form>
       </section>}
-      <UsersList onSelect={setSelected} />
+      {staff ? <StaffList onSelect={setSelected} /> : <UsersList onSelect={setSelected} />}
     </div>;
+}
+
+function StaffList({ onSelect }: { onSelect: (id: string) => void }) {
+  const { read, blocked } = useAdmin();
+  const [result, setResult] = useState<{ data?: UserDetail[]; loading: boolean; error?: Error }>({ loading: true });
+  const [role, setRole] = useState("");
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      const { users } = await read<{ users: UserRow[] }>("/users", controller.signal);
+      const staff: UserDetail[] = [];
+      // ponytail: limited to 100 recent users; replace with a role-filtered staff endpoint when available.
+      for (let index = 0; index < users.length; index += 5) {
+        const details = await Promise.all(users.slice(index, index + 5).map((user) => read<UserDetail>(`/users/${encodeURIComponent(user.authUserId)}`, controller.signal)));
+        staff.push(...details.filter(({ account }) => roles(account?.role).some((value) => value === "admin" || value === "moderator")));
+      }
+      return staff;
+    }
+    load().then(
+      (data) => { if (!controller.signal.aborted) setResult({ data, loading: false }); },
+      (error) => { if (!controller.signal.aborted) setResult({ error, loading: false }); },
+    );
+    return () => controller.abort();
+  }, [read]);
+  const filtered = (result.data ?? []).filter(({ user, account }) => (!role || roles(account?.role).includes(role)) && `${user.fullName} ${user.email}`.toLowerCase().includes(search.trim().toLowerCase()));
+  return <div className="stack">
+    <div className="panel row toolbar">
+      <label>Search staff<input type="search" placeholder="Name or email" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      <label>Filter by role<select value={role} onChange={(event) => setRole(event.target.value)}>
+        <option value="">All staff</option><option value="admin">Admin</option><option value="moderator">Moderator</option>
+      </select></label>
+    </div>
+    <section className="panel stack">
+      <div><h2>Staff directory</h2><p className="muted">Admins and moderators among the 100 most recent accounts.</p></div>
+      <ResourceState {...result}>
+        {!filtered.length ? <p className="empty">No staff match your filters.</p> : <div className="table-wrap"><table>
+          <thead><tr><th scope="col">Staff member</th><th scope="col">Role</th><th scope="col">Action</th></tr></thead>
+          <tbody>{filtered.map(({ user, account }) => <tr key={user.authUserId}>
+            <td><strong>{user.fullName}</strong><p className="muted">{user.email}</p></td>
+            <td>{account?.role}</td>
+            <td><button disabled={blocked} onClick={() => onSelect(user.authUserId)} aria-label={`Inspect ${user.fullName}`}>Inspect</button></td>
+          </tr>)}</tbody>
+        </table></div>}
+      </ResourceState>
+    </section>
+  </div>;
 }
 
 function UsersList({ onSelect }: { onSelect: (id: string) => void }) {
@@ -72,12 +120,13 @@ export function VerificationsPanel() {
 function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
   const result = useResource<{ users: VerificationUser[] }>("/verifications");
   const { blocked } = useAdmin();
+  const users = (result.data?.users ?? []).filter((user) => user.verificationDocument?.uploaded === true);
   return <section className="panel stack">
     <div><h2>Student verification queue</h2><p className="muted">Oldest pending or under-review submissions first. Up to 100 records.</p></div>
     <ResourceState {...result}>
-      {!result.data?.users.length ? <p className="empty">No verifications are waiting for review.</p> : <div className="table-wrap"><table>
+      {!users.length ? <p className="empty">No verifications are waiting for review.</p> : <div className="table-wrap"><table>
         <thead><tr><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Document</th><th scope="col">Action</th></tr></thead>
-        <tbody>{result.data.users.map((user) => <tr key={user.authUserId}>
+        <tbody>{users.map((user) => <tr key={user.authUserId}>
           <td><strong>{user.fullName}</strong><p className="muted">{user.email}</p></td>
           <td><Badge status={user.verificationStatus} /></td><td>{user.verificationDocument.uploaded ? "Uploaded" : "Not uploaded"}</td>
           <td><button disabled={blocked} onClick={() => onSelect(user.authUserId)} aria-label={`Review ${user.fullName}`}>Review</button></td>
@@ -94,7 +143,6 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
   const user = result.data?.user;
   const account = result.data?.account;
   const canManage = !!account && (isAdmin || !roles(account.role).some((role) => role === "admin" || role === "moderator"));
-  const document = safeDocumentUrl(user?.verificationDocument?.url);
   return <div className="stack">
     <div><button disabled={blocked} onClick={onClose}>← Back to {staff ? "staff" : verification ? "verification queue" : "users"}</button></div>
     <ResourceState {...result}>{user && <>
@@ -115,7 +163,30 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
       </section>
       {!staff && <section className="panel stack">
         <h2>Verification documents</h2>
-        {document ? <a className="button-link" href={document} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Open verification document ↗</a> : <p className="muted">No accessible verification document. Reviewed files may have already been deleted.</p>}
+        <div className="grid">{([['Front side', user.verificationDocument?.frontUrl], ['Back side', user.verificationDocument?.backUrl]] as const).map(([side, url]) => {
+          const document = safeDocumentUrl(url);
+          return <div className="stack" key={side}>
+          <h3>{side}</h3>
+          {document ? <Dialog.Root>
+          <div className="document-thumbnail">
+            {/* eslint-disable-next-line @next/next/no-img-element -- Keep signed document URLs out of the image optimization cache. */}
+            <img src={document} alt={`${side} verification document thumbnail`} referrerPolicy="no-referrer" />
+            <Dialog.Trigger>View full {side.toLowerCase()}</Dialog.Trigger>
+          </div>
+          <Dialog.Portal className="admin admin-dialog">
+            <Dialog.Backdrop className="confirmation-backdrop" />
+            <Dialog.Popup className="panel stack confirmation-popup document-popup">
+              <div className="row between">
+                <Dialog.Title>{side} verification document</Dialog.Title>
+                <Dialog.Close>Close</Dialog.Close>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element -- Display the original signed document directly. */}
+              <img className="document-full" src={document} alt={`${side} verification document for ${user.fullName}`} referrerPolicy="no-referrer" />
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root> : <p className="muted">No accessible {side.toLowerCase()} document. Reviewed files may have already been deleted.</p>}
+          </div>;
+        })}</div>
         {!user.verificationHistory?.length ? <p className="muted">No verification history.</p> : user.verificationHistory.map((item) => <div className="message stack" key={item._id}>
           <div className="row between"><strong>{item.documentType.replaceAll("_", " ")} · {item.verificationMethod}</strong><Badge status={item.status} /></div>
           <p className="muted">Submitted {date(item.submittedAt)}{item.detectedName ? ` · Detected name: ${item.detectedName}` : ""}{item.confidenceScore !== undefined ? ` · Confidence: ${item.confidenceScore}` : ""}</p>

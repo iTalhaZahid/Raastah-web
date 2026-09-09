@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { Dialog } from "@base-ui/react/dialog";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ClipboardCheck, FileWarning, LogOut, Settings2, ShieldCheck, Users, ScrollText } from "lucide-react";
+import { ClipboardCheck, FileWarning, LogOut, Settings2, ShieldCheck, Users, ScrollText, GraduationCap } from "lucide-react";
 import { adminRoot, apiOrigin, ApiError, request, roles, type Session } from "@/lib/admin-api";
 import { UsersPanel, VerificationsPanel } from "./users";
 import { ReportsPanel, ConfigPanel, AuditsPanel } from "./operations";
+import { UniversitiesPanel } from "./universities";
 
 type AdminContextValue = {
   isAdmin: boolean;
   blocked: boolean;
   read: <T>(path: string, signal: AbortSignal) => Promise<T>;
-  mutate: <T>(path: string, method: string, body: unknown, confirmation: string) => Promise<T | undefined>;
+  mutate: <T>(path: string, method: string, body: unknown, confirmation: string) => Promise<T | null | undefined>;
   notify: (message: string) => void;
 };
 const AdminContext = createContext<AdminContextValue | null>(null);
@@ -55,6 +56,7 @@ export function ResourceState({ loading, error, children }: { loading: boolean; 
 const tabs = [
   { id: "users", label: "Users", icon: Users, description: "Inspect accounts, ride history, and access." },
   { id: "staff", label: "Staff", icon: ShieldCheck, description: "Appoint moderators and manage staff access.", admin: true },
+  { id: "universities", label: "Universities", icon: GraduationCap, description: "Manage universities available for student selection.", admin: true },
   { id: "verifications", label: "Verifications", icon: ClipboardCheck, description: "Review student documents and verification requests." },
   { id: "reports", label: "Reports", icon: FileWarning, description: "Review safety reports and preserved chat evidence." },
   { id: "config", label: "Configuration", icon: Settings2, description: "Manage matching, pricing, and cancellation rules.", admin: true },
@@ -132,7 +134,7 @@ export default function AdminDashboard() {
     }
   }, [handleError]);
 
-  const mutate = useCallback(async <T,>(path: string, method: string, body: unknown, confirmation: string): Promise<T | undefined> => {
+  const mutate = useCallback(async <T,>(path: string, method: string, body: unknown, confirmation: string): Promise<T | null | undefined> => {
     if (pendingRef.current || cooldown) return;
     pendingRef.current = true;
     try {
@@ -141,12 +143,12 @@ export default function AdminDashboard() {
       setPending(true);
       setError("");
       setNotice("");
-      const response = await request<{ success: true; data: T }>(`${adminRoot}${path}`, {
+      const response = await request<{ success: true; data: T } | null>(`${adminRoot}${path}`, {
         method, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      if (response?.success !== true || !response.data) throw new ApiError("The API returned an unexpected response. Refresh before taking another action.", 0);
+      if (response !== null && (response?.success !== true || !response.data)) throw new ApiError("The API returned an unexpected response. Refresh before taking another action.", 0);
       setNotice("Changes saved.");
-      return response.data;
+      return response === null ? null : response.data;
     } catch (cause) {
       handleError(cause);
       if (cause instanceof ApiError && cause.status === 404) setRevision((value) => value + 1);
@@ -275,6 +277,7 @@ export default function AdminDashboard() {
               <div key={`${tab}-${revision}`}>
                 {tab === "users" && <UsersPanel />}
                 {tab === "staff" && isAdmin && <UsersPanel staff />}
+                {tab === "universities" && isAdmin && <UniversitiesPanel />}
                 {tab === "verifications" && <VerificationsPanel />}
                 {tab === "reports" && <ReportsPanel />}
                 {tab === "config" && isAdmin && <ConfigPanel />}
