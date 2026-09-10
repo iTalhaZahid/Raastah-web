@@ -15,6 +15,7 @@ type AdminContextValue = {
   read: <T>(path: string, signal: AbortSignal) => Promise<T>;
   mutate: <T>(path: string, method: string, body: unknown, confirmation: string) => Promise<T | null | undefined>;
   notify: (message: string) => void;
+  notifyError: (message: string) => void;
 };
 const AdminContext = createContext<AdminContextValue | null>(null);
 
@@ -125,7 +126,7 @@ export default function AdminDashboard() {
 
   const read = useCallback(async <T,>(path: string, signal: AbortSignal): Promise<T> => {
     try {
-      const response = await request<{ success: true; data: T }>(`${adminRoot}${path}`, { signal });
+      const response = await request<{ success: true; data: T }>(path === "/api/v1/universities" ? path : `${adminRoot}${path}`, { signal });
       if (response?.success !== true || !response.data) throw new ApiError("The API returned an unexpected response.", 0);
       return response.data;
     } catch (cause) {
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
   );
 
   const feedback = <>
-    {error && <p className="notice error" role="alert">{error}</p>}
+    {error && <div className="notice error error-toast row between" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={() => setError("")}>Dismiss</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     {cooldown > 0 && <p className="notice" role="status">Too many requests. Submissions are paused for {cooldown} seconds.</p>}
   </>;
@@ -247,7 +248,7 @@ export default function AdminDashboard() {
 
   const current = tabs.find((item) => item.id === tab)!;
   return (
-    <AdminContext.Provider value={{ isAdmin, blocked, read, mutate, notify: setNotice }}>
+    <AdminContext.Provider value={{ isAdmin, blocked, read, mutate, notify: setNotice, notifyError: setError }}>
       {confirmationDialog}
       <div className="admin">
         <a className="skip" href="#admin-content">Skip to content</a>

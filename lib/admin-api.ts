@@ -49,6 +49,7 @@ export type UserRow = {
 };
 export type VerificationUser = Pick<UserRow, "_id" | "authUserId" | "fullName" | "email" | "verificationStatus" | "createdAt"> & {
   university?: string;
+  rollNumber?: string;
   verificationDocument: { uploaded: boolean; frontUrl: string | null; backUrl: string | null };
   verificationHistory: {
     _id: string; documentType: string; verificationMethod: string; status: VerificationStatus;
