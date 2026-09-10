@@ -119,15 +119,17 @@ export function VerificationsPanel() {
 
 function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
   const result = useResource<{ users: VerificationUser[] }>("/verifications");
+  const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const { blocked } = useAdmin();
   const users = (result.data?.users ?? []).filter((user) => user.verificationDocument?.uploaded === true);
   return <section className="panel stack">
     <div><h2>Student verification queue</h2><p className="muted">Oldest pending or under-review submissions first. Up to 100 records.</p></div>
     <ResourceState {...result}>
       {!users.length ? <p className="empty">No verifications are waiting for review.</p> : <div className="table-wrap"><table>
-        <thead><tr><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Document</th><th scope="col">Action</th></tr></thead>
+        <thead><tr><th scope="col">Student</th><th scope="col">University</th><th scope="col">Status</th><th scope="col">Document</th><th scope="col">Action</th></tr></thead>
         <tbody>{users.map((user) => <tr key={user.authUserId}>
           <td><strong>{user.fullName}</strong><p className="muted">{user.email}</p></td>
+          <td>{catalog.data?.universities.find((item) => item._id === user.university)?.name ?? user.university ?? "Not provided"}</td>
           <td><Badge status={user.verificationStatus} /></td><td>{user.verificationDocument.uploaded ? "Uploaded" : "Not uploaded"}</td>
           <td><button disabled={blocked} onClick={() => onSelect(user.authUserId)} aria-label={`Review ${user.fullName}`}>Review</button></td>
         </tr>)}</tbody>
@@ -138,6 +140,7 @@ function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
 
 function UserInspector({ id, verification = false, staff = false, onClose, onUpdated }: { id: string; verification?: boolean; staff?: boolean; onClose: () => void; onUpdated: (close?: boolean) => void }) {
   const result = useResource<UserDetail>(`/users/${encodeURIComponent(id)}`);
+  const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const { isAdmin, blocked } = useAdmin();
   useEffect(() => { if (result.error?.status === 404) onClose(); }, [result.error, onClose]);
   const user = result.data?.user;
@@ -152,6 +155,7 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
           <div><dt>Auth user ID</dt><dd className="id">{user.authUserId}</dd></div>
           <div><dt>Application user ID</dt><dd className="id">{user._id}</dd></div>
           <div><dt>Role</dt><dd>{account?.role || "user"}</dd></div>
+          <div><dt>Student-selected university</dt><dd>{catalog.data?.universities.find((item) => item._id === user.university)?.name ?? user.university ?? "Not provided"}</dd></div>
           <div><dt>Joined</dt><dd>{date(user.createdAt)}</dd></div>
           <div><dt>Account access</dt><dd>{user.isDeleted ? "Deleted" : account?.banned ? "Banned" : user.isBlocked ? "Blocked" : "Active"}</dd></div>
           <div><dt>Ride suspension ends</dt><dd>{date(user.rideSuspendedUntil)}</dd></div>
@@ -203,9 +207,7 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
 
 function VerificationDecision({ user, onDone }: { user: VerificationUser; onDone: () => void }) {
   const { blocked, mutate, notifyError } = useAdmin();
-  const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const [status, setStatus] = useState("VERIFIED");
-  const [university, setUniversity] = useState(user.university ?? "");
   const [rollNumber, setRollNumber] = useState(user.rollNumber ?? "");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -213,12 +215,12 @@ function VerificationDecision({ user, onDone }: { user: VerificationUser; onDone
     const reason = String(form.get("reason") ?? "").trim();
     const number = rollNumber.trim().toUpperCase();
     if (status === "VERIFIED") {
-      if (!university || !catalog.data?.universities.some((item) => item._id === university)) { notifyError("Choose an available university before approval."); return; }
+      if (!user.university) { notifyError("The student's submission is missing a university."); return; }
       if (!number || number.length > 100) { notifyError("Enter a roll number between 1 and 100 characters before approval."); return; }
       if (!safeDocumentUrl(user.verificationDocument?.frontUrl) || !safeDocumentUrl(user.verificationDocument?.backUrl)) { notifyError("Both document sides are required before approval."); return; }
     } else if (reason.length < 3 || reason.length > 1000) { notifyError("Enter a reason between 3 and 1000 characters."); return; }
     notifyError("");
-    const result = await mutate(`/verifications/${encodeURIComponent(user.authUserId)}`, "PATCH", { status, ...(status === "REJECTED" ? { reason } : { university, rollNumber: number }) }, `${status === "VERIFIED" ? "Approve" : "Reject"} verification for ${user.fullName}? Stored verification files will be permanently deleted.${status === "VERIFIED" ? `\nUniversity: ${catalog.data?.universities.find((item) => item._id === university)?.name}\nRoll number: ${number}` : `\nReason: ${reason}`}`);
+    const result = await mutate(`/verifications/${encodeURIComponent(user.authUserId)}`, "PATCH", { status, ...(status === "REJECTED" ? { reason } : { rollNumber: number }) }, `${status === "VERIFIED" ? "Approve" : "Reject"} verification for ${user.fullName}? Stored verification files will be permanently deleted.${status === "VERIFIED" ? `\nRoll number: ${number}` : `\nReason: ${reason}`}`);
     if (result) onDone();
   }
   return <form onSubmit={submit} noValidate className="stack">
@@ -226,14 +228,8 @@ function VerificationDecision({ user, onDone }: { user: VerificationUser; onDone
     <fieldset disabled={blocked} className="stack">
       <label>Decision<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="VERIFIED">Approve verification</option><option value="REJECTED">Reject verification</option></select></label>
       {status === "VERIFIED" && <>
-        <label>University<select required value={university} disabled={catalog.loading || !!catalog.error} onChange={(event) => setUniversity(event.target.value)}>
-          <option value="">Choose university</option>
-          {user.university && !catalog.data?.universities.some((item) => item._id === user.university) && <option value={user.university} disabled>Current university unavailable</option>}
-          {catalog.data?.universities.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
-        </select></label>
-        <ResourceState {...catalog}>{catalog.data?.universities.length === 0 && <p className="muted">No universities available. Ask an administrator to add one.</p>}</ResourceState>
         <label>Roll number<input name="rollNumber" required maxLength={100} value={rollNumber} onChange={(event) => setRollNumber(event.target.value)} placeholder="Enter roll number from the document" /></label>
-        <p className="muted">University, roll number, and both document sides are required for approval.</p>
+        <p className="muted">Confirm the roll number and the student&apos;s selected university against both document sides.</p>
       </>}
       {status === "REJECTED" && <label>Reason<textarea name="reason" required minLength={3} maxLength={1000} /></label>}
       <div><button className="primary" type="submit">Review decision</button></div>
