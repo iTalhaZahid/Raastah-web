@@ -192,7 +192,7 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
           <p className="muted">Submitted {date(item.submittedAt)}{item.detectedName ? ` · Detected name: ${item.detectedName}` : ""}{item.confidenceScore !== undefined ? ` · Confidence: ${item.confidenceScore}` : ""}</p>
           {item.audit.map((entry, index) => <p key={index}>{entry.action.replaceAll("_", " ")} · {date(entry.createdAt)}{entry.reason ? ` — ${entry.reason}` : ""}</p>)}
         </div>)}
-        {canManage && !user.isDeleted && (user.verificationStatus === "PENDING" || user.verificationStatus === "UNDER_REVIEW") && <VerificationDecision id={id} name={user.fullName} onDone={() => onUpdated()} />}
+        {canManage && !user.isDeleted && (user.verificationStatus === "PENDING" || user.verificationStatus === "UNDER_REVIEW") && <VerificationDecision user={user} onDone={() => onUpdated()} />}
       </section>}
       {!canManage && <p className="notice">{account ? "Moderators cannot manage moderator or administrator accounts." : "Account details are unavailable; account changes are disabled."}</p>}
       {canManage && !user.isDeleted && <UserActions id={id} user={user} staff={staff} currentRole={account?.role} onDone={onUpdated} />}
@@ -201,25 +201,41 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
   </div>;
 }
 
-function VerificationDecision({ id, name, onDone }: { id: string; name: string; onDone: () => void }) {
-  const { blocked, mutate } = useAdmin();
+function VerificationDecision({ user, onDone }: { user: VerificationUser; onDone: () => void }) {
+  const { blocked, mutate, notifyError } = useAdmin();
+  const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const [status, setStatus] = useState("VERIFIED");
-  const [error, setError] = useState("");
+  const [university, setUniversity] = useState(user.university ?? "");
+  const [rollNumber, setRollNumber] = useState(user.rollNumber ?? "");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const reason = String(form.get("reason") ?? "").trim();
-    if (status === "REJECTED" && (reason.length < 3 || reason.length > 1000)) { setError("Enter a reason between 3 and 1000 characters."); return; }
-    setError("");
-    const result = await mutate(`/verifications/${encodeURIComponent(id)}`, "PATCH", { status, ...(status === "REJECTED" ? { reason } : {}) }, `${status === "VERIFIED" ? "Approve" : "Reject"} verification for ${name}? Stored verification files will be permanently deleted.${reason ? `\nReason: ${reason}` : ""}`);
+    const number = rollNumber.trim().toUpperCase();
+    if (status === "VERIFIED") {
+      if (!university || !catalog.data?.universities.some((item) => item._id === university)) { notifyError("Choose an available university before approval."); return; }
+      if (!number || number.length > 100) { notifyError("Enter a roll number between 1 and 100 characters before approval."); return; }
+      if (!safeDocumentUrl(user.verificationDocument?.frontUrl) || !safeDocumentUrl(user.verificationDocument?.backUrl)) { notifyError("Both document sides are required before approval."); return; }
+    } else if (reason.length < 3 || reason.length > 1000) { notifyError("Enter a reason between 3 and 1000 characters."); return; }
+    notifyError("");
+    const result = await mutate(`/verifications/${encodeURIComponent(user.authUserId)}`, "PATCH", { status, ...(status === "REJECTED" ? { reason } : { university, rollNumber: number }) }, `${status === "VERIFIED" ? "Approve" : "Reject"} verification for ${user.fullName}? Stored verification files will be permanently deleted.${status === "VERIFIED" ? `\nUniversity: ${catalog.data?.universities.find((item) => item._id === university)?.name}\nRoll number: ${number}` : `\nReason: ${reason}`}`);
     if (result) onDone();
   }
-  return <form onSubmit={submit} className="stack">
+  return <form onSubmit={submit} noValidate className="stack">
     <h3>Verification decision</h3><p className="muted">Approving or rejecting deletes the stored verification files.</p>
     <fieldset disabled={blocked} className="stack">
       <label>Decision<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="VERIFIED">Approve verification</option><option value="REJECTED">Reject verification</option></select></label>
+      {status === "VERIFIED" && <>
+        <label>University<select required value={university} disabled={catalog.loading || !!catalog.error} onChange={(event) => setUniversity(event.target.value)}>
+          <option value="">Choose university</option>
+          {user.university && !catalog.data?.universities.some((item) => item._id === user.university) && <option value={user.university} disabled>Current university unavailable</option>}
+          {catalog.data?.universities.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+        </select></label>
+        <ResourceState {...catalog}>{catalog.data?.universities.length === 0 && <p className="muted">No universities available. Ask an administrator to add one.</p>}</ResourceState>
+        <label>Roll number<input name="rollNumber" required maxLength={100} value={rollNumber} onChange={(event) => setRollNumber(event.target.value)} placeholder="Enter roll number from the document" /></label>
+        <p className="muted">University, roll number, and both document sides are required for approval.</p>
+      </>}
       {status === "REJECTED" && <label>Reason<textarea name="reason" required minLength={3} maxLength={1000} /></label>}
-      {error && <p role="alert" className="notice error">{error}</p>}
       <div><button className="primary" type="submit">Review decision</button></div>
     </fieldset>
   </form>;
