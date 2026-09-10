@@ -30,7 +30,7 @@
 .admin .panel { min-width: 0; padding: 24px; border: 1px solid #29322c; border-radius: 16px; background: #111713; }
 .admin .notice { padding: 14px 18px; border: 1px solid #465525; border-radius: 12px; background: #1b2410; color: #dbefb3; overflow-wrap: anywhere; }
 .admin .error { border-color: #793c37; background: #291815; color: #ffb6b1; }
-.admin .error-toast { position: fixed; bottom: 24px; right: 24px; z-index: 110; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; box-shadow: 0 12px 40px #0008; }
+.admin .error-toast { position: fixed; top: 24px; right: 24px; z-index: 110; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; box-shadow: 0 12px 40px #0008; }
 .admin .error-toast span { flex: 1; min-width: 0; }
 .admin .badge { display: inline-block; max-width: 100%; padding: 5px 9px; border-radius: 6px; background: #26352b; color: #c8e7ce; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
 .admin .badge[data-status=REJECTED], .admin .badge[data-status=FAILED], .admin .badge[data-status=CANCELLED] { background: #3b2421; color: #ffb6b1; }
