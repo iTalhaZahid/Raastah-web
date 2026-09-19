@@ -114,7 +114,7 @@ function EvidenceView({ id }: { id: string }) {
 
 export function ConfigPanel() {
   const result = useResource<{ config: AdminConfig }>("/config");
-  return <ResourceState {...result}>{result.data && <ConfigEditor initial={result.data.config} />}</ResourceState>;
+  return <ResourceState {...result} layout="form">{result.data && <ConfigEditor initial={result.data.config} />}</ResourceState>;
 }
 
 function ConfigEditor({ initial }: { initial: AdminConfig }) {
@@ -147,16 +147,16 @@ function ConfigEditor({ initial }: { initial: AdminConfig }) {
 export function AuditsPanel() {
   const result = useResource<{ audits: Audit[] }>("/audits");
   const [search, setSearch] = useState("");
-  const audits = (result.data?.audits ?? []).filter((audit) => `${audit.action} ${audit.actorAuthUserId} ${audit.targetAuthUserId ?? ""} ${audit.details?.configKey ?? ""} ${audit.details?.reportId ?? ""} ${audit.reason}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const audits = (result.data?.audits ?? []).filter((audit) => `${audit.action} ${audit.actorAuthUserId} ${audit.targetAuthUserId ?? ""} ${audit.details?.configKey ?? ""} ${audit.details?.reportId ?? ""} ${audit.details?.name ?? ""} ${audit.details?.universityId ?? ""} ${audit.reason}`.toLowerCase().includes(search.trim().toLowerCase()));
   return <section className="panel stack">
-    <div><h2>Admin action history</h2><p className="muted">User, configuration, and report actions. Up to 100 most recent audit records, newest first.</p></div>
+    <div><h2>Admin action history</h2><p className="muted">User, university, configuration, and report actions. Up to 100 most recent audit records, newest first.</p></div>
     <label>Search loaded audits<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Action, staff ID, target ID, or reason" /></label>
     <ResourceState {...result}>
       {!audits.length ? <p className="empty">No audit records match your search.</p> : <div className="table-wrap"><table>
         <thead><tr><th scope="col">Action / reason</th><th scope="col">Staff / target</th><th scope="col">Outcome</th><th scope="col">Time</th></tr></thead>
         <tbody>{audits.map((audit) => <tr key={audit._id}>
           <td><strong>{audit.action.replaceAll("_", " ")}</strong><p className="muted">{audit.reason}</p>{audit.failureMessage && <p>{audit.failureMessage}</p>}</td>
-          <td><p className="id">{audit.actorAuthUserId}</p><p className="muted">{audit.actorRole} →</p><p className="id">{audit.targetAuthUserId ?? audit.details?.configKey ?? audit.details?.reportId ?? "—"}</p></td>
+          <td><p className="id">{audit.actorAuthUserId}</p><p className="muted">{audit.actorRole} →</p><p className="id">{audit.targetAuthUserId ?? audit.details?.configKey ?? audit.details?.reportId ?? audit.details?.name ?? audit.details?.universityId ?? "—"}</p></td>
           <td><Badge status={audit.outcome} /></td><td>{date(audit.createdAt)}</td>
         </tr>)}</tbody>
       </table></div>}

@@ -78,7 +78,7 @@ export type Evidence = {
 export type Audit = {
   _id: string; action: string; actorAuthUserId: string; actorRole: string;
   targetAuthUserId?: string; reason: string; outcome: string; failureMessage?: string; createdAt: string;
-  details?: { configKey?: string; reportId?: string; changes?: Record<string, unknown>; status?: string; resolutionNote?: string };
+  details?: { configKey?: string; reportId?: string; name?: string; universityId?: string; changes?: Record<string, unknown>; status?: string; resolutionNote?: string };
 };
 
 // Explicit fields keep this strict PATCH endpoint free of read-only or unknown keys.
@@ -86,7 +86,8 @@ export const configFields = [
   ["searchTimeoutSeconds", "Search timeout (seconds)", 1, "integer"],
   ["requestExpirySeconds", "Request expiry (seconds)", 1, "integer"],
   ["timeToleranceMinutes", "Time tolerance (minutes)", 0, "positive"],
-  ["destinationToleranceMeters", "Destination tolerance (meters)", 1, "integer"],
+  ["destinationToleranceMeters", "Final Destination Tolerance (meters)", 1, "integer"],
+  ["routeCorridorToleranceMeters", "Route Corridor Tolerance (meters)", 1, "integer"],
   ["initialSearchRadiusMeters", "Initial search radius (meters)", 1, "radius"],
   ["maxSearchRadiusMeters", "Maximum search radius (meters)", 1, "radius"],
   ["searchExpansionMeters", "Search expansion (meters)", 1, "radius"],

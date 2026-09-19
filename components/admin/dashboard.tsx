@@ -48,8 +48,18 @@ export function date(value?: string) {
   return value ? new Date(value).toLocaleString() : "—";
 }
 
-export function ResourceState({ loading, error, children }: { loading: boolean; error?: Error; children: ReactNode }) {
-  if (loading) return <p className="empty" role="status">Loading records…</p>;
+export function LoadingSkeleton({ layout = "list", label = "Loading records…" }: { layout?: "list" | "overview" | "form"; label?: string }) {
+  return <div className="stack loading-skeleton" role="status" aria-label={label}>
+    <span className="sr-only">{label}</span>
+    {layout === "overview" && <div className="metrics" aria-hidden="true">{[0, 1, 2].map((item) => <div className="panel stack" key={item}><span className="skeleton skeleton-label" /><span className="skeleton skeleton-value" /></div>)}</div>}
+    <div className={layout === "form" ? "grid" : "stack"} aria-hidden="true">
+      {(layout === "form" ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3]).map((item) => <div className="skeleton-row" key={item}><span className="skeleton skeleton-label" /><span className={`skeleton ${layout === "form" ? "skeleton-input" : "skeleton-line"}`} /></div>)}
+    </div>
+  </div>;
+}
+
+export function ResourceState({ loading, error, children, layout = "list" }: { loading: boolean; error?: Error; children: ReactNode; layout?: "list" | "overview" | "form" }) {
+  if (loading) return <LoadingSkeleton layout={layout} />;
   if (error) return <p className="empty">Records could not be loaded. Use Refresh to try again.</p>;
   return children;
 }
@@ -232,7 +242,7 @@ export default function AdminDashboard() {
       <ShieldCheck size={32} color="#d4ff00" aria-hidden="true" />
       <div><p className="eyebrow">Staff workspace</p><h1>Admin sign in</h1><p className="muted">Keep every road a little safer.</p></div>
       {feedback}
-      {checking ? <p role="status">Checking your session…</p> : session ? <>
+      {checking ? <LoadingSkeleton label="Checking your session…" /> : session ? <>
         <p role="alert">This account does not have admin or moderator access.</p>
         <button disabled={blocked} onClick={signOut}>Sign out</button>
       </> : <form onSubmit={signIn} className="stack">

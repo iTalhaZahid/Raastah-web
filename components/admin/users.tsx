@@ -89,7 +89,7 @@ function UserResults({ filter, search, onSelect }: { filter: string; search: str
   const { blocked } = useAdmin();
   const users = result.data?.users ?? [];
   const filtered = users.filter((user) => `${user.fullName} ${user.email}`.toLowerCase().includes(search.toLowerCase().trim()));
-  return <ResourceState {...result}>
+  return <ResourceState {...result} layout="overview">
     <div className="stack">
       <div className="metrics">
         <div className="panel"><p className="muted">Loaded accounts</p><p className="metric">{users.length}</p></div>
