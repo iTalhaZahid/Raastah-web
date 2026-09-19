@@ -13,7 +13,7 @@ const user = {
 };
 const initialConfig: AdminConfig = {
   searchTimeoutSeconds: 60, requestExpirySeconds: 30, timeToleranceMinutes: 5, destinationToleranceMeters: 200,
-  initialSearchRadiusMeters: 500, maxSearchRadiusMeters: 2000, searchExpansionMeters: 250,
+  routeCorridorToleranceMeters: 500, initialSearchRadiusMeters: 500, maxSearchRadiusMeters: 2000, searchExpansionMeters: 250,
   currentPetrolPrice: 280, baselinePetrolPrice: 260, baseRatePerKm: 12, minimumRecommendedPrice: 80,
   openDiscoveryPricing: { rateMultiplier: 1.2 }, minimumDetourPrice: 20, cancellationRatingPenalty: 0.5,
   warningAfterCancellationCount: 2, suspendAfterCancellationCount: 4, banAfterCancellationCount: 6,
@@ -221,6 +221,7 @@ test("audits show and search configuration and report targets without a user ID"
   await page.route("**/api/v1/admin/audits", (route) => route.fulfill({ json: { success: true, data: { audits: [
     { _id: "audit-config", action: "CONFIG_UPDATED", actorAuthUserId: "staff-id", actorRole: "admin", reason: "Pricing update", outcome: "SUCCEEDED", createdAt: "2026-09-05T10:00:00Z", details: { configKey: "ride-pricing" } },
     { _id: "audit-report", action: "REPORT_EVIDENCE_DELETED", actorAuthUserId: "staff-id", actorRole: "admin", reason: "Case closed", outcome: "SUCCEEDED", createdAt: "2026-09-05T10:00:00Z", details: { reportId: "report-123" } },
+    { _id: "audit-university", action: "UNIVERSITY_ADDED", actorAuthUserId: "staff-id", actorRole: "admin", reason: "Catalog update", outcome: "SUCCEEDED", createdAt: "2026-09-05T10:00:00Z", details: { name: "Test University", universityId: "university-123" } },
   ] } } }));
   await page.goto("/admin");
   await page.getByRole("button", { name: "Audit log", exact: true }).click();
@@ -229,6 +230,8 @@ test("audits show and search configuration and report targets without a user ID"
   await page.getByLabel("Search loaded audits").fill("report-123");
   await expect(page.getByRole("cell", { name: /report-123/ })).toBeVisible();
   await expect(page.getByRole("cell", { name: /ride-pricing/ })).toHaveCount(0);
+  await page.getByLabel("Search loaded audits").fill("university-123");
+  await expect(page.getByRole("cell", { name: /Test University/ })).toBeVisible();
 });
 
 test("account actions encode auth IDs, require confirmation, and show queued deletion without polling", async ({ page }) => {
@@ -307,6 +310,8 @@ test("configuration uses server values and PATCHes only changed numeric fields",
   await page.goto("/admin");
   await page.getByRole("button", { name: "Configuration", exact: true }).click();
   await expect(page.getByLabel("Current petrol price (PKR)")).toHaveValue("280");
+  await expect(page.getByLabel("Route Corridor Tolerance (meters)")).toHaveValue("500");
+  await page.getByLabel("Route Corridor Tolerance (meters)").fill("650");
   await page.getByLabel("Maximum search radius (meters)").fill("100");
   await page.getByRole("button", { name: "Review configuration changes" }).click();
   await expect(page.locator(".admin").getByRole("alert")).toContainText("Maximum search radius must be at least the initial radius.");
@@ -316,7 +321,7 @@ test("configuration uses server values and PATCHes only changed numeric fields",
   await page.getByRole("button", { name: "Review configuration changes" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(page.locator(".notice[role=status]")).toContainText("Changes saved.");
-  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ currentPetrolPrice: 290.5, openDiscoveryPricing: { rateMultiplier: 1.3 } });
+  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ routeCorridorToleranceMeters: 650, currentPetrolPrice: 290.5, openDiscoveryPricing: { rateMultiplier: 1.3 } });
   await page.getByRole("button", { name: "Review configuration changes" }).click();
   await expect(page.locator(".admin").getByRole("alert")).toContainText("Change at least one value");
 });
@@ -381,4 +386,34 @@ test("config validation rejects unsafe numbers and inconsistent thresholds; docu
   expect(safeDocumentUrl("javascript:alert(1)")).toBeNull();
   expect(safeDocumentUrl("data:text/html,bad")).toBeNull();
   expect(safeDocumentUrl("https://example.com/file")).toBe("https://example.com/file");
+});
+
+test("skeletons cover loading and refresh, then give way to records or errors", async ({ page }) => {
+  await mockBackend(page);
+  let release!: () => void;
+  await page.route("**/api/v1/admin/users", async (route) => {
+    await new Promise<void>((resolve) => { release = resolve; });
+    await route.fallback();
+  });
+  await page.goto("/admin");
+  const loading = page.getByRole("status", { name: "Loading records…" });
+  await expect(loading).toBeVisible();
+  await expect(loading.locator(".metrics .panel")).toHaveCount(3);
+  await expect(page.getByText("No users match your search.")).toHaveCount(0);
+  release();
+  await expect(page.getByRole("button", { name: "Inspect Ayesha Khan" })).toBeVisible();
+  await expect(loading).toHaveCount(0);
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(loading).toBeVisible();
+  release();
+  await expect(loading).toHaveCount(0);
+  await page.route("**/api/v1/admin/config", async (route) => {
+    await new Promise<void>((resolve) => { release = resolve; });
+    await route.fulfill({ status: 500, json: { message: "Configuration unavailable" } });
+  });
+  await page.getByRole("button", { name: "Configuration", exact: true }).click();
+  await expect(loading.locator(".skeleton-input")).toHaveCount(6);
+  release();
+  await expect(page.getByText("Records could not be loaded. Use Refresh to try again.")).toBeVisible();
+  await expect(loading).toHaveCount(0);
 });
