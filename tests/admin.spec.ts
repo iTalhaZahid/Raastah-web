@@ -8,12 +8,12 @@ const user = {
   _id: "507f1f77bcf86cd799439011", authUserId: authId, fullName: "Ayesha Khan", email: "ayesha@example.com",
   verificationStatus: "UNDER_REVIEW", createdAt: "2026-09-01T10:00:00Z", isBlocked: false, isDeleted: false,
   ridePermanentlyBanned: false, stats: { totalRides: 8, completedRides: 7, cancelledRides: 1, averageRating: 4.8, completionRate: 87.5 },
-  verificationDocument: { uploaded: true, url: "https://documents.example.com/student-id" }, verificationHistory: [],
+  university: "university-123", rollNumber: "CS-001", verificationDocument: { uploaded: true, frontUrl: "https://documents.example.com/front", backUrl: "https://documents.example.com/back" }, verificationHistory: [],
   userMode: "RIDER", onboardingCompleted: true,
 };
 const initialConfig: AdminConfig = {
   searchTimeoutSeconds: 60, requestExpirySeconds: 30, timeToleranceMinutes: 5, destinationToleranceMeters: 200,
-  routeCorridorToleranceMeters: 500, initialSearchRadiusMeters: 500, maxSearchRadiusMeters: 2000, searchExpansionMeters: 250,
+  routeCorridorToleranceMeters: 500, destinationOverheadMeters: 1000, initialSearchRadiusMeters: 500, maxSearchRadiusMeters: 2000, searchExpansionMeters: 250,
   currentPetrolPrice: 280, baselinePetrolPrice: 260, baseRatePerKm: 12, minimumRecommendedPrice: 80,
   openDiscoveryPricing: { rateMultiplier: 1.2 }, minimumDetourPrice: 20, cancellationRatingPenalty: 0.5,
   warningAfterCancellationCount: 2, suspendAfterCancellationCount: 4, banAfterCancellationCount: 6,
@@ -31,6 +31,7 @@ async function mockBackend(page: Page, role: string | null = "admin", targetRole
   };
   const calls: { path: string; method: string; body: Record<string, unknown> | null }[] = [];
   let failure: { status: number; path: string; body?: object; retryAfter?: string } | undefined;
+  await page.route("https://documents.example.com/**", (route) => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60"><rect width="100" height="60" fill="white"/></svg>' }));
   await page.route("http://127.0.0.1:3101/api/**", async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
@@ -52,6 +53,7 @@ async function mockBackend(page: Page, role: string | null = "admin", targetRole
     if (path === "/api/auth/sign-in/email") { sessionRole = "admin"; return json({ user: { id: "staff-id" } }); }
     if (path === "/api/auth/sign-out") { sessionRole = null; return json({ success: true }); }
     if (!sessionRole) return json({ success: false, message: "Session expired" }, 401);
+    if (path === "/api/v1/universities") return success({ universities: [{ _id: "university-123", name: "Test University" }] });
     if (path === "/api/v1/admin/users") return success({ users: [currentUser] });
     if (path === `/api/v1/admin/users/${encodedId}`) return success({ user: currentUser, account: { id: authId, role: targetRole, banned: false, emailVerified: true } });
     if (path === `/api/v1/admin/users/${encodedId}/rides`) return success({ rides: [] });
@@ -60,7 +62,7 @@ async function mockBackend(page: Page, role: string | null = "admin", targetRole
     if (path.startsWith(`/api/v1/admin/users/${encodedId}/`)) return success({});
     if (path === "/api/v1/admin/verifications") return success({ users: currentUser.verificationStatus === "UNDER_REVIEW" ? [currentUser] : [] });
     if (path === `/api/v1/admin/verifications/${encodedId}`) {
-      currentUser = { ...currentUser, verificationStatus: body.status, verificationDocument: { uploaded: false, url: "" } };
+      currentUser = { ...currentUser, verificationStatus: body.status, verificationDocument: { uploaded: false, frontUrl: "", backUrl: "" } };
       return success({ user: currentUser });
     }
     if (path === "/api/v1/admin/reports") return success({ reports: [report] });
@@ -187,7 +189,7 @@ test("logout requires confirmation, including for an account without staff acces
 });
 
 test("Staff lets an admin appoint and remove a moderator using a confirmed, audited role change", async ({ page }) => {
-  const backend = await mockBackend(page);
+  const backend = await mockBackend(page, "admin", "admin");
   await page.goto("/admin");
   await page.getByRole("button", { name: "Staff", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Manage staff access" })).toBeVisible();
@@ -273,12 +275,12 @@ test("verification approval removes the reviewed item and its document", async (
   await page.goto("/admin");
   await page.getByRole("button", { name: "Verifications", exact: true }).click();
   await page.getByRole("button", { name: "Review Ayesha Khan" }).click();
-  await expect(page.getByRole("link", { name: "Open verification document" })).toHaveAttribute("href", "https://documents.example.com/student-id");
+  await expect(page.getByRole("img", { name: "Front side verification document for Ayesha Khan", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Review decision" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(page.getByText("No verifications are waiting for review.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open verification document" })).toHaveCount(0);
-  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ status: "VERIFIED" });
+  await expect(page.getByRole("img", { name: /verification document/ })).toHaveCount(0);
+  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ status: "VERIFIED", rollNumber: "CS-001" });
 });
 
 test("reports follow legal transitions and only resolved evidence can be deleted", async ({ page }) => {
@@ -300,7 +302,7 @@ test("reports follow legal transitions and only resolved evidence can be deleted
   await expect(page.getByRole("button", { name: "Review status change" })).toHaveCount(0);
   await page.getByRole("button", { name: "Delete evidence permanently" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect(page.getByText(/Evidence permanently deleted on/)).toBeVisible();
+  await expect(page.getByText(/Evidence snapshot removed on/)).toBeVisible();
   expect(backend.calls.filter((call) => call.method === "PATCH").map((call) => call.body?.status)).toEqual(["VALIDATED", "RESOLVED"]);
   expect(backend.calls.filter((call) => call.method === "DELETE")).toHaveLength(1);
 });
@@ -310,18 +312,19 @@ test("configuration uses server values and PATCHes only changed numeric fields",
   await page.goto("/admin");
   await page.getByRole("button", { name: "Configuration", exact: true }).click();
   await expect(page.getByLabel("Current petrol price (PKR)")).toHaveValue("280");
-  await expect(page.getByLabel("Route Corridor Tolerance (meters)")).toHaveValue("500");
-  await page.getByLabel("Route Corridor Tolerance (meters)").fill("650");
-  await page.getByLabel("Maximum search radius (meters)").fill("100");
+  await expect(page.getByLabel("Route Corridor Tolerance (meters, compatibility only)")).toHaveValue("500");
+  await page.getByLabel("Route Corridor Tolerance (meters, compatibility only)").fill("650");
+  await page.getByLabel("Maximum search radius (meters, legacy ranking)").fill("100");
   await page.getByRole("button", { name: "Review configuration changes" }).click();
   await expect(page.locator(".admin").getByRole("alert")).toContainText("Maximum search radius must be at least the initial radius.");
-  await page.getByLabel("Maximum search radius (meters)").fill("2000");
+  await page.getByLabel("Maximum search radius (meters, legacy ranking)").fill("2000");
+  await page.getByLabel("Destination Road Overhead (meters)").fill("0");
   await page.getByLabel("Current petrol price (PKR)").fill("290.5");
   await page.getByLabel("Open discovery rate multiplier").fill("1.3");
   await page.getByRole("button", { name: "Review configuration changes" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(page.locator(".notice[role=status]")).toContainText("Changes saved.");
-  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ routeCorridorToleranceMeters: 650, currentPetrolPrice: 290.5, openDiscoveryPricing: { rateMultiplier: 1.3 } });
+  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ destinationOverheadMeters: 0, routeCorridorToleranceMeters: 650, currentPetrolPrice: 290.5, openDiscoveryPricing: { rateMultiplier: 1.3 } });
   await page.getByRole("button", { name: "Review configuration changes" }).click();
   await expect(page.locator(".admin").getByRole("alert")).toContainText("Change at least one value");
 });
@@ -377,7 +380,7 @@ test("config validation rejects unsafe numbers and inconsistent thresholds; docu
     for (const [key] of configFields) form.set(key, String(key === "rateMultiplier" ? initialConfig.openDiscoveryPricing.rateMultiplier : initialConfig[key]));
     return form;
   }
-  for (const [key, value] of [["searchTimeoutSeconds", "1.5"], ["initialSearchRadiusMeters", "3001"], ["rateMultiplier", "0"], ["currentPetrolPrice", ""], ["currentPetrolPrice", "Infinity"], ["warningAfterCancellationCount", "5"], ["cancellationRatingPenalty", "6"]]) {
+  for (const [key, value] of [["destinationOverheadMeters", "-1"], ["destinationOverheadMeters", "1.5"], ["searchTimeoutSeconds", "1.5"], ["initialSearchRadiusMeters", "3001"], ["rateMultiplier", "0"], ["currentPetrolPrice", ""], ["currentPetrolPrice", "Infinity"], ["warningAfterCancellationCount", "5"], ["cancellationRatingPenalty", "6"]]) {
     const form = fields(); form.set(key, value);
     expect(() => configPatch(form, initialConfig)).toThrow();
   }
@@ -416,4 +419,72 @@ test("skeletons cover loading and refresh, then give way to records or errors", 
   release();
   await expect(page.getByText("Records could not be loaded. Use Refresh to try again.")).toBeVisible();
   await expect(loading).toHaveCount(0);
+});
+
+test("verification preserves input on conflict and sends an optional approval reason", async ({ page }) => {
+  const backend = await mockBackend(page, "moderator");
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Verifications", exact: true }).click();
+  await page.getByRole("button", { name: "Review Ayesha Khan" }).click();
+  await page.getByLabel("Roll number", { exact: true }).fill(" cs-002 ");
+  await page.getByLabel("Review reason (optional)").fill("x");
+  await expect(page.getByRole("button", { name: "Review decision" })).toBeDisabled();
+  await page.getByLabel("Review reason (optional)").fill("Identity checked against both images");
+  backend.failNext({ path: `/api/v1/admin/verifications/${encodedId}`, status: 409, body: { message: "Number already claimed" } });
+  await page.getByRole("button", { name: "Review decision" }).click();
+  await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.locator(".admin").getByRole("alert")).toContainText("Number already claimed");
+  await expect(page.getByLabel("Roll number", { exact: true })).toHaveValue(" cs-002 ");
+  await expect(page.getByLabel("Review reason (optional)")).toHaveValue("Identity checked against both images");
+  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ status: "VERIFIED", rollNumber: "CS-002", reason: "Identity checked against both images" });
+});
+
+test("failed document images prevent approval but still allow rejection", async ({ page }) => {
+  const backend = await mockBackend(page, "moderator");
+  await page.route("https://documents.example.com/**", (route) => route.abort());
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Verifications", exact: true }).click();
+  await page.getByRole("button", { name: "Review Ayesha Khan" }).click();
+  await expect(page.getByText("Could not load the front side image. Refresh to try again.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review decision" })).toBeDisabled();
+  await page.getByRole("combobox", { name: "Decision", exact: true }).selectOption("REJECTED");
+  await page.getByLabel("Review reason", { exact: true }).fill("Please upload readable images");
+  await page.getByRole("button", { name: "Review decision" }).click();
+  await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.getByText("No verifications are waiting for review.")).toBeVisible();
+  expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ status: "REJECTED", reason: "Please upload readable images" });
+});
+
+test("uncertain mutations reload target and audits, expose support IDs, and never replay", async ({ page }) => {
+  const backend = await mockBackend(page);
+  let attempts = 0;
+  await page.route(`**/api/v1/admin/users/${encodedId}/unban`, (route) => { attempts++; return route.fulfill({ status: 503, headers: { "X-Request-ID": "request-123", "Rndr-Id": "render-456" }, json: { message: "Outcome uncertain" } }); });
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Inspect Ayesha Khan" }).click();
+  await page.getByRole("combobox", { name: "Action", exact: true }).selectOption("unban");
+  await page.getByLabel("Reason", { exact: true }).fill("Review completed");
+  await page.getByRole("button", { name: "Review action", exact: true }).click();
+  await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Mutation recovery" })).toContainText("No matching entry");
+  await expect(page.getByLabel("Support details")).toHaveValue(/request-123.*render-456.*503.*UTC:.*Dashboard:/);
+  expect(backend.calls.filter((call) => call.path === `/api/v1/admin/users/${encodedId}`).length).toBeGreaterThan(1);
+  expect(backend.calls.some((call) => call.path === "/api/v1/admin/audits")).toBe(true);
+  await expect(page.getByRole("button", { name: "Inspect Ayesha Khan" })).toBeDisabled();
+  expect(attempts).toBe(1);
+  await page.getByRole("button", { name: "I have reviewed the outcome" }).click();
+  await expect(page.getByRole("button", { name: "Inspect Ayesha Khan" })).toBeEnabled();
+});
+
+test("report conflicts reload current status before another review", async ({ page }) => {
+  const backend = await mockBackend(page);
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await page.getByRole("button", { name: /Review report/ }).click();
+  await page.getByLabel("Review note").fill("Evidence reviewed");
+  backend.failNext({ path: "/api/v1/admin/reports/507f1f77bcf86cd799439012", status: 409, body: { message: "Report changed; reload" } });
+  await page.getByRole("button", { name: "Review status change" }).click();
+  await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.locator(".admin").getByRole("alert")).toContainText("Report changed; reload");
+  await expect(page.getByRole("heading", { name: "Safety reports" })).toBeVisible();
+  expect(backend.calls.filter((call) => call.path === "/api/v1/admin/reports" && call.method === "GET").length).toBeGreaterThan(2);
 });
