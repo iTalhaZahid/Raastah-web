@@ -121,7 +121,7 @@ function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
   const result = useResource<{ users: VerificationUser[] }>("/verifications");
   const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const { blocked } = useAdmin();
-  const users = (result.data?.users ?? []).filter((user) => user.verificationDocument?.uploaded === true);
+  const users = result.data?.users ?? [];
   return <section className="panel stack">
     <div><h2>Student verification queue</h2><p className="muted">Oldest pending or under-review submissions first. Up to 100 records.</p></div>
     <ResourceState {...result}>
@@ -139,6 +139,7 @@ function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
 }
 
 function UserInspector({ id, verification = false, staff = false, onClose, onUpdated }: { id: string; verification?: boolean; staff?: boolean; onClose: () => void; onUpdated: (close?: boolean) => void }) {
+  const [images, setImages] = useState<Record<string, "loaded" | "failed">>({});
   const result = useResource<UserDetail>(`/users/${encodeURIComponent(id)}`);
   const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const { isAdmin, blocked } = useAdmin();
@@ -174,7 +175,8 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
           {document ? <Dialog.Root>
           <div className="document-thumbnail">
             {/* eslint-disable-next-line @next/next/no-img-element -- Keep signed document URLs out of the image optimization cache. */}
-            <img src={document} alt={`${side} verification document thumbnail`} referrerPolicy="no-referrer" />
+            <img src={document} alt={`${side} verification document for ${user.fullName}`} referrerPolicy="no-referrer" onLoad={() => setImages((value) => ({ ...value, [document]: "loaded" }))} onError={() => setImages((value) => ({ ...value, [document]: "failed" }))} />
+            {images[document] === "failed" && <p role="status">Could not load the {side.toLowerCase()} image. Refresh to try again.</p>}
             <Dialog.Trigger>View full {side.toLowerCase()}</Dialog.Trigger>
           </div>
           <Dialog.Portal className="admin admin-dialog">
@@ -185,7 +187,8 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
                 <Dialog.Close>Close</Dialog.Close>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element -- Display the original signed document directly. */}
-              <img className="document-full" src={document} alt={`${side} verification document for ${user.fullName}`} referrerPolicy="no-referrer" />
+              <img className="document-full" src={document} alt={`${side} verification document for ${user.fullName}`} referrerPolicy="no-referrer" onError={() => setImages((value) => ({ ...value, [document]: "failed" }))} />
+              {images[document] === "failed" && <p role="status">Could not load this image. Close and refresh to try again.</p>}
             </Dialog.Popup>
           </Dialog.Portal>
         </Dialog.Root> : <p className="muted">No accessible {side.toLowerCase()} document. Reviewed files may have already been deleted.</p>}
@@ -196,7 +199,7 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
           <p className="muted">Submitted {date(item.submittedAt)}{item.detectedName ? ` · Detected name: ${item.detectedName}` : ""}{item.confidenceScore !== undefined ? ` · Confidence: ${item.confidenceScore}` : ""}</p>
           {item.audit.map((entry, index) => <p key={index}>{entry.action.replaceAll("_", " ")} · {date(entry.createdAt)}{entry.reason ? ` — ${entry.reason}` : ""}</p>)}
         </div>)}
-        {canManage && !user.isDeleted && (user.verificationStatus === "PENDING" || user.verificationStatus === "UNDER_REVIEW") && <VerificationDecision user={user} onDone={() => onUpdated()} />}
+        {canManage && !user.isDeleted && (user.verificationStatus === "PENDING" || user.verificationStatus === "UNDER_REVIEW") && <VerificationDecision user={user} imagesReady={[user.verificationDocument?.frontUrl, user.verificationDocument?.backUrl].every((url) => !!url && images[safeDocumentUrl(url) ?? ""] === "loaded")} onDone={() => onUpdated()} />}
       </section>}
       {!canManage && <p className="notice">{account ? "Moderators cannot manage moderator or administrator accounts." : "Account details are unavailable; account changes are disabled."}</p>}
       {canManage && !user.isDeleted && <UserActions id={id} user={user} staff={staff} currentRole={account?.role} onDone={onUpdated} />}
@@ -205,34 +208,38 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
   </div>;
 }
 
-function VerificationDecision({ user, onDone }: { user: VerificationUser; onDone: () => void }) {
-  const { blocked, mutate, notifyError } = useAdmin();
+function VerificationDecision({ user, imagesReady, onDone }: { user: VerificationUser; imagesReady: boolean; onDone: () => void }) {
+  const { blocked, mutate, notify, notifyError } = useAdmin();
   const [status, setStatus] = useState("VERIFIED");
   const [rollNumber, setRollNumber] = useState(user.rollNumber ?? "");
+  const [reason, setReason] = useState("");
+  const validReason = reason.trim().length >= 3 && reason.trim().length <= 1000;
+  const ready = status === "VERIFIED" ? imagesReady && !!user.university && !!rollNumber.trim() && rollNumber.trim().length <= 100 && (!reason.trim() || validReason) : validReason;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const reason = String(form.get("reason") ?? "").trim();
+    if (!ready) return;
+    const reviewReason = reason.trim();
     const number = rollNumber.trim().toUpperCase();
     if (status === "VERIFIED") {
       if (!user.university) { notifyError("The student's submission is missing a university."); return; }
       if (!number || number.length > 100) { notifyError("Enter a roll number between 1 and 100 characters before approval."); return; }
       if (!safeDocumentUrl(user.verificationDocument?.frontUrl) || !safeDocumentUrl(user.verificationDocument?.backUrl)) { notifyError("Both document sides are required before approval."); return; }
-    } else if (reason.length < 3 || reason.length > 1000) { notifyError("Enter a reason between 3 and 1000 characters."); return; }
+    } else if (!validReason) { notifyError("Enter a reason between 3 and 1000 characters."); return; }
     notifyError("");
-    const result = await mutate(`/verifications/${encodeURIComponent(user.authUserId)}`, "PATCH", { status, ...(status === "REJECTED" ? { reason } : { rollNumber: number }) }, `${status === "VERIFIED" ? "Approve" : "Reject"} verification for ${user.fullName}? Stored verification files will be permanently deleted.${status === "VERIFIED" ? `\nRoll number: ${number}` : `\nReason: ${reason}`}`);
-    if (result) onDone();
+    const result = await mutate<{ user: VerificationUser }>(`/verifications/${encodeURIComponent(user.authUserId)}`, "PATCH", { status, ...(status === "VERIFIED" ? { rollNumber: number } : {}), ...(reviewReason ? { reason: reviewReason } : {}) }, `${status === "VERIFIED" ? "Approve" : "Reject"} verification for ${user.fullName}? Both outcomes clear document references and queue image cleanup.${status === "VERIFIED" ? `\nRoll number: ${number}` : ""}${reviewReason ? `\nReason: ${reviewReason}` : ""}`);
+    if (result) { notify(`Verification ${result.user.verificationStatus.toLowerCase()}. Document references cleared; image cleanup queued.`); onDone(); }
   }
   return <form onSubmit={submit} noValidate className="stack">
-    <h3>Verification decision</h3><p className="muted">Approving or rejecting deletes the stored verification files.</p>
+    <h3>Verification decision</h3><p className="muted">Approving or rejecting clears document references and queues image cleanup.</p>
     <fieldset disabled={blocked} className="stack">
       <label>Decision<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="VERIFIED">Approve verification</option><option value="REJECTED">Reject verification</option></select></label>
       {status === "VERIFIED" && <>
         <label>Roll number<input name="rollNumber" required maxLength={100} value={rollNumber} onChange={(event) => setRollNumber(event.target.value)} placeholder="Enter roll number from the document" /></label>
         <p className="muted">Confirm the roll number and the student&apos;s selected university against both document sides.</p>
       </>}
-      {status === "REJECTED" && <label>Reason<textarea name="reason" required minLength={3} maxLength={1000} /></label>}
-      <div><button className="primary" type="submit">Review decision</button></div>
+      <label>Review reason{status === "VERIFIED" ? " (optional)" : ""}<textarea name="reason" required={status === "REJECTED"} minLength={3} maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+      {status === "VERIFIED" && !imagesReady && <p className="muted">Both document images must load before approval. Incomplete submissions can still be rejected.</p>}
+      <div><button className="primary" type="submit" disabled={!ready}>Review decision</button></div>
     </fieldset>
   </form>;
 }

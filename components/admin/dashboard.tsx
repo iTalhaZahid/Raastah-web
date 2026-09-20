@@ -8,6 +8,7 @@ import { adminRoot, apiOrigin, ApiError, request, roles, type Session } from "@/
 import { UsersPanel, VerificationsPanel } from "./users";
 import { ReportsPanel, ConfigPanel, AuditsPanel } from "./operations";
 import { UniversitiesPanel } from "./universities";
+import { version } from "../../package.json";
 
 type AdminContextValue = {
   isAdmin: boolean;
@@ -79,6 +80,8 @@ export default function AdminDashboard() {
   const [session, setSession] = useState<Session>(null);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
+  const [failure, setFailure] = useState<ApiError>();
+  const [recovery, setRecovery] = useState<{ path: string; summary?: string; audits?: string; error?: string }>();
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
@@ -106,9 +109,11 @@ export default function AdminDashboard() {
 
   const handleError = useCallback((cause: unknown) => {
     const failure = cause instanceof ApiError ? cause : new ApiError("The request could not be completed.", 0);
+    setFailure(failure);
     if (failure.status === 401) {
       answerConfirmation(false);
       setSession(null);
+      setRecovery(undefined);
       setNotice("");
       setTab("users");
       setError("Your session has expired. Please sign in again.");
@@ -128,6 +133,41 @@ export default function AdminDashboard() {
     return () => controller.abort();
   }, [handleError]);
 
+  async function recoverMutation(path: string) {
+    setRecovery({ path });
+    try {
+      const parts = path.split("/");
+      const target = parts[1] === "verifications" ? `/users/${parts[2]}` : parts[1] === "users" || parts[1] === "reports" ? `/${parts[1]}/${parts[2]}` : `/${parts[1]}`;
+      const controller = new AbortController();
+      let data: Record<string, unknown>;
+      try { data = await read<Record<string, unknown>>(target, controller.signal); }
+      catch (cause) {
+        if (!(cause instanceof ApiError) || cause.status !== 404) throw cause;
+        data = { status: "Target no longer exists. Check audit history to establish the outcome." };
+      }
+      const record = (data.user ?? data.report ?? data) as Record<string, unknown>;
+      const account = data.account as { role?: string; banned?: boolean } | undefined;
+      const summary = [record.fullName, record.verificationStatus, record.status, account?.role,
+        account ? (account.banned ? "Account banned" : "Account not banned") : undefined, record.isDeleted ? "Account deleted" : undefined,
+        record.rideSuspendedUntil ? `Rides suspended until ${record.rideSuspendedUntil}` : undefined,
+        record.evidenceDeletedAt ? "Evidence snapshot removed" : undefined,
+        target === "/config" ? "Current configuration reloaded." : undefined,
+        target === "/universities" ? "Current university catalog reloaded." : undefined,
+      ].filter(Boolean).join(" · ") || "Target record reloaded.";
+      let audits = "Audit history is admin-only. Ask an administrator to check the outcome before retrying.";
+      if (isAdmin) {
+        const { audits: entries } = await read<{ audits: import("@/lib/admin-api").Audit[] }>("/audits", controller.signal);
+        const relevant = entries.filter((entry) => parts[1] === "users" || parts[1] === "verifications" ? entry.targetAuthUserId === decodeURIComponent(parts[2]) : parts[1] === "reports" ? entry.details?.reportId === decodeURIComponent(parts[2]) : parts[1] === "config" ? entry.action === "CONFIG_UPDATED" : entry.action.startsWith("UNIVERSITY_"));
+        audits = relevant.slice(0, 5).map((entry) => `${entry.action}: ${entry.outcome} (${entry.createdAt})`).join("; ") || "No matching entry in the latest 100 audits. Absence does not establish that the write failed.";
+      }
+      setRecovery({ path, summary, audits });
+      setRevision((value) => value + 1);
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) return;
+      setRecovery({ path, error: "Could not establish the outcome. Check the connection and reload the latest state before retrying." });
+    }
+  }
+
   useEffect(() => {
     if (!cooldown) return;
     const timer = window.setTimeout(() => setCooldown((seconds) => Math.max(0, seconds - 1)), 1000);
@@ -145,14 +185,15 @@ export default function AdminDashboard() {
     }
   }, [handleError]);
 
-  const mutate = useCallback(async <T,>(path: string, method: string, body: unknown, confirmation: string): Promise<T | null | undefined> => {
-    if (pendingRef.current || cooldown) return;
+  const mutate = async <T,>(path: string, method: string, body: unknown, confirmation: string): Promise<T | null | undefined> => {
+    if (pendingRef.current || cooldown || recovery) return;
     pendingRef.current = true;
     try {
       const confirmed = await confirmAction(confirmation);
       if (!confirmed) return;
       setPending(true);
       setError("");
+      setFailure(undefined);
       setNotice("");
       const response = await request<{ success: true; data: T } | null>(`${adminRoot}${path}`, {
         method, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -163,11 +204,13 @@ export default function AdminDashboard() {
     } catch (cause) {
       handleError(cause);
       if (cause instanceof ApiError && cause.status === 404) setRevision((value) => value + 1);
+      if (cause instanceof ApiError && cause.status === 409 && (path.startsWith("/reports/") || path === "/config")) setRevision((value) => value + 1);
+      if (!(cause instanceof ApiError) || cause.status === 0 || cause.status >= 500 || (cause.status >= 200 && cause.status < 300)) await recoverMutation(path);
     } finally {
       pendingRef.current = false;
       setPending(false);
     }
-  }, [cooldown, handleError, confirmAction]);
+  };
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -208,6 +251,7 @@ export default function AdminDashboard() {
       setError("");
       await request("/api/auth/sign-out", { method: "POST", body: "{}" });
       setSession(null);
+      setRecovery(undefined);
       setNotice("");
       setTab("users");
     } catch (cause) { handleError(cause); }
@@ -230,8 +274,19 @@ export default function AdminDashboard() {
       </Dialog.Root>
   );
 
+  const supportDetails = failure ? `Request ID: ${failure.requestId ?? "unavailable"}; Render ID: ${failure.renderRequestId ?? "unavailable"}; HTTP: ${failure.status || "network"}; UTC: ${failure.timestamp}; Dashboard: ${version}` : "";
   const feedback = <>
     {error && <div className="notice error error-toast row between" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={() => setError("")}>Dismiss</button></div>}
+    {error && failure && <div className="notice stack">
+      <label>Support details<input readOnly value={supportDetails} onFocus={(event) => event.target.select()} /></label>
+      <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(supportDetails); setNotice("Support details copied."); } catch { setNotice("Select and copy the support details field."); } }}>Copy support details</button>
+    </div>}
+    {recovery && <section className="notice stack" aria-label="Mutation recovery">
+      <h2>Check the operation outcome</h2><p>The write may already have succeeded. It has not been retried.</p>
+      <p>{recovery.error ?? recovery.summary ?? "Reading the target and available audit history…"}</p>
+      {recovery.audits && <p>{recovery.audits}</p>}
+      {recovery.error ? <button disabled={pending} onClick={() => recoverMutation(recovery.path)}>Reload latest state</button> : recovery.summary && <button onClick={() => setRecovery(undefined)}>I have reviewed the outcome</button>}
+    </section>}
     {notice && <p className="notice" role="status">{notice}</p>}
     {cooldown > 0 && <p className="notice" role="status">Too many requests. Submissions are paused for {cooldown} seconds.</p>}
   </>;
@@ -258,7 +313,7 @@ export default function AdminDashboard() {
 
   const current = tabs.find((item) => item.id === tab)!;
   return (
-    <AdminContext.Provider value={{ isAdmin, blocked, read, mutate, notify: setNotice, notifyError: setError }}>
+    <AdminContext.Provider value={{ isAdmin, blocked: blocked || !!recovery, read, mutate, notify: setNotice, notifyError: setError }}>
       {confirmationDialog}
       <div className="admin">
         <a className="skip" href="#admin-content">Skip to content</a>

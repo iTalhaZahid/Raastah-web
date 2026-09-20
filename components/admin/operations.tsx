@@ -53,7 +53,7 @@ function ReportDetail({ id, onClose, onUpdated }: { id: string; onClose: () => v
   }
 
   async function deleteEvidence() {
-    const updated = await mutate(`/reports/${encodeURIComponent(id)}/evidence`, "DELETE", undefined, `Permanently delete preserved chat evidence and its managed images for report ${id}? This cannot be undone. The report itself will be retained.`);
+    const updated = await mutate(`/reports/${encodeURIComponent(id)}/evidence`, "DELETE", undefined, `Remove the preserved evidence snapshot for report ${id} and queue managed image cleanup? This cannot be undone. Shared images are retained until no longer referenced. The report itself will be retained.`);
     if (updated) onUpdated();
   }
 
@@ -72,7 +72,7 @@ function ReportDetail({ id, onClose, onUpdated }: { id: string; onClose: () => v
       </section>
       <section className="panel stack">
         <h2>Preserved chat evidence</h2>
-        {report.evidenceDeletedAt ? <p className="muted">Evidence permanently deleted on {date(report.evidenceDeletedAt)}.</p> : !report.evidenceSnapshotId ? <p className="muted">No preserved evidence is attached to this report.</p> : <>
+        {report.evidenceDeletedAt ? <p className="muted">Evidence snapshot removed on {date(report.evidenceDeletedAt)}. Managed image cleanup is queued; shared references may defer provider deletion.</p> : !report.evidenceSnapshotId ? <p className="muted">No preserved evidence is attached to this report.</p> : <>
           <div className="row"><button disabled={blocked} onClick={() => setShowEvidence((value) => !value)}>{showEvidence ? "Hide evidence" : "View evidence"}</button>
             {report.status === "RESOLVED" && <button className="danger" disabled={blocked} onClick={deleteEvidence}>Delete evidence permanently</button>}
           </div>
@@ -134,6 +134,7 @@ function ConfigEditor({ initial }: { initial: AdminConfig }) {
   }
   return <section className="panel stack">
     <div><h2>Service configuration</h2><p className="muted">Current values loaded from the server. Only changed fields are saved.</p></div>
+    <p className="muted">Destination Road Overhead is the inclusive Google road distance from the driver&apos;s destination to a rider destination requiring an overhead check. Pickup proximity applies when starting a ride. Corridor tolerance is retained for compatibility; search radii control legacy ranking and search state, not match visibility. Drivers decide pickup convenience.</p>
     <form key={revision} onSubmit={submit}><fieldset disabled={blocked} className="stack">
       <div className="grid">{configFields.map(([key, label, min, kind]) => <label key={key}>{label}
         <input name={key} type="number" required min={min} max={kind === "radius" ? 3000 : kind === "penalty" ? 5 : undefined} step={kind === "integer" || kind === "radius" ? 1 : "any"} defaultValue={key === "rateMultiplier" ? current.openDiscoveryPricing.rateMultiplier : current[key]} />

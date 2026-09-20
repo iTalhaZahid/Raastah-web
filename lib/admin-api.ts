@@ -2,6 +2,10 @@ export const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(
 export const adminRoot = "/api/v1/admin";
 
 export class ApiError extends Error {
+  timestamp = new Date().toISOString();
+  requestId: string | null = null;
+  renderRequestId: string | null = null;
+  code?: string;
   constructor(message: string, public status: number, public retryAfter = 30) {
     super(message);
   }
@@ -15,7 +19,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   let response: Response;
   try {
     // Next rewrites forward to the backend while keeping session cookies first-party.
-    response = await fetch(path, { ...init, headers, credentials: "include", cache: "no-store" });
+    response = await fetch(path, { ...init, signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000), headers, credentials: "include", cache: "no-store" });
   } catch (error) {
     if (init.signal?.aborted) throw error;
     throw new ApiError("Cannot reach the API. Check your connection and the backend's allowed origins.", 0);
@@ -27,10 +31,14 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
       : "";
     const retry = response.headers.get("Retry-After");
     const seconds = retry && /^\d+$/.test(retry) ? Number(retry) : retry ? (Date.parse(retry) - Date.now()) / 1000 : 30;
-    throw new ApiError(fields || body?.message || `Request failed (${response.status}).`, response.status, Number.isFinite(seconds) ? Math.max(1, seconds) : 30);
+    throw Object.assign(new ApiError(fields || body?.message || `Request failed (${response.status}).`, response.status, Number.isFinite(seconds) ? Math.max(1, seconds) : 30), {
+      requestId: response.headers.get("X-Request-ID"), renderRequestId: response.headers.get("Rndr-Id"), code: body?.code,
+    });
   }
   if (response.status !== 204 && body === null && path !== "/api/auth/get-session") {
-    throw new ApiError("The API returned an unexpected response.", response.status);
+    throw Object.assign(new ApiError("The API returned an unexpected response.", response.status), {
+      requestId: response.headers.get("X-Request-ID"), renderRequestId: response.headers.get("Rndr-Id"),
+    });
   }
   return body as T;
 }
@@ -86,11 +94,12 @@ export const configFields = [
   ["searchTimeoutSeconds", "Search timeout (seconds)", 1, "integer"],
   ["requestExpirySeconds", "Request expiry (seconds)", 1, "integer"],
   ["timeToleranceMinutes", "Time tolerance (minutes)", 0, "positive"],
-  ["destinationToleranceMeters", "Final Destination Tolerance (meters)", 1, "integer"],
-  ["routeCorridorToleranceMeters", "Route Corridor Tolerance (meters)", 1, "integer"],
-  ["initialSearchRadiusMeters", "Initial search radius (meters)", 1, "radius"],
-  ["maxSearchRadiusMeters", "Maximum search radius (meters)", 1, "radius"],
-  ["searchExpansionMeters", "Search expansion (meters)", 1, "radius"],
+  ["destinationToleranceMeters", "Ride-start pickup proximity (meters)", 1, "integer"],
+  ["routeCorridorToleranceMeters", "Route Corridor Tolerance (meters, compatibility only)", 1, "integer"],
+  ["destinationOverheadMeters", "Destination Road Overhead (meters)", 0, "integer"],
+  ["initialSearchRadiusMeters", "Initial search radius (meters, legacy ranking)", 1, "radius"],
+  ["maxSearchRadiusMeters", "Maximum search radius (meters, legacy ranking)", 1, "radius"],
+  ["searchExpansionMeters", "Search expansion (meters, legacy search state)", 1, "radius"],
   ["currentPetrolPrice", "Current petrol price (PKR)", 0, "decimal"],
   ["baselinePetrolPrice", "Baseline petrol price (PKR)", 0, "positive"],
   ["baseRatePerKm", "Base rate per km (PKR)", 0, "decimal"],
