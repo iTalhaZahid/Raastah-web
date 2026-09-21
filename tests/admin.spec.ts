@@ -128,7 +128,7 @@ test("the actual Next proxy preserves HttpOnly session cookies through login, re
     } else if (req.url === "/api/auth/sign-out") {
       res.setHeader("Set-Cookie", "__Secure-better-auth.session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
       res.end(JSON.stringify({ success: true }));
-    } else if (req.url === "/api/v1/admin/users" && signedIn) {
+    } else if (req.url === "/api/v1/admin/users?page=1&limit=10" && signedIn) {
       res.end(JSON.stringify({ success: true, data: { users: [] } }));
     } else { res.statusCode = 401; res.end(JSON.stringify({ success: false, message: "No session" })); }
   });
@@ -146,7 +146,7 @@ test("the actual Next proxy preserves HttpOnly session cookies through login, re
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Admin sign in" })).toBeVisible();
-    expect(paths).toContain("/api/v1/admin/users");
+    expect(paths).toContain("/api/v1/admin/users?page=1&limit=10");
     expect((await context.cookies()).some((cookie) => cookie.name === "__Secure-better-auth.session_token")).toBe(false);
   } finally {
     server.closeAllConnections();
@@ -220,7 +220,7 @@ test("Staff lets an admin appoint and remove a moderator using a confirmed, audi
 
 test("audits show and search configuration and report targets without a user ID", async ({ page }) => {
   await mockBackend(page);
-  await page.route("**/api/v1/admin/audits", (route) => route.fulfill({ json: { success: true, data: { audits: [
+  await page.route("**/api/v1/admin/audits?*", (route) => route.fulfill({ json: { success: true, data: { audits: [
     { _id: "audit-config", action: "CONFIG_UPDATED", actorAuthUserId: "staff-id", actorRole: "admin", reason: "Pricing update", outcome: "SUCCEEDED", createdAt: "2026-09-05T10:00:00Z", details: { configKey: "ride-pricing" } },
     { _id: "audit-report", action: "REPORT_EVIDENCE_DELETED", actorAuthUserId: "staff-id", actorRole: "admin", reason: "Case closed", outcome: "SUCCEEDED", createdAt: "2026-09-05T10:00:00Z", details: { reportId: "report-123" } },
     { _id: "audit-university", action: "UNIVERSITY_ADDED", actorAuthUserId: "staff-id", actorRole: "admin", reason: "Catalog update", outcome: "SUCCEEDED", createdAt: "2026-09-05T10:00:00Z", details: { name: "Test University", universityId: "university-123" } },
@@ -239,7 +239,7 @@ test("audits show and search configuration and report targets without a user ID"
 test("audit names resolve once per account, remain searchable by ID, and fall back for deleted users", async ({ page }) => {
   const backend = await mockBackend(page);
   await page.route("**/api/v1/admin/users/staff-id", (route) => route.fulfill({ json: { success: true, data: { user: { fullName: "" }, account: { name: "Admin Reviewer" } } } }));
-  await page.route("**/api/v1/admin/audits", (route) => route.fulfill({ json: { success: true, data: { audits: [
+  await page.route("**/api/v1/admin/audits?*", (route) => route.fulfill({ json: { success: true, data: { audits: [
     { _id: "audit-1", actorAuthUserId: "staff-id", targetAuthUserId: authId, actorRole: "admin", action: "USER_RIDE_SUSPENDED", reason: "Review complete", outcome: "SUCCEEDED" },
     { _id: "audit-2", actorAuthUserId: "staff-id", targetAuthUserId: "deleted-user", actorRole: "admin", action: "USER_DELETED", reason: "Deletion requested", outcome: "SUCCEEDED" },
   ] } } }));
@@ -259,7 +259,7 @@ test("audit names resolve once per account, remain searchable by ID, and fall ba
 
 test("ride status badges stay on one line beside long addresses", async ({ page }) => {
   await mockBackend(page);
-  await page.route("**/rides", (route) => route.fulfill({ json: { success: true, data: { rides: [{
+  await page.route("**/rides?*", (route) => route.fulfill({ json: { success: true, data: { rides: [{
     _id: "ride-1", status: "CANCELLED", pickup: { displayName: "Stadium Road, Old City Bahawalpur, Bahawalpur, 63100, Pakistan" },
     destination: { displayName: "9MMV+H6V, Anwarabad Colony, Bahawalpur, 63100, Pakistan" }, agreedPrice: 70, createdAt: "2026-09-21T10:41:23Z",
   }] } } }));
@@ -272,6 +272,37 @@ test("ride status badges stay on one line beside long addresses", async ({ page 
     await expect(badge).toHaveCSS("white-space", "nowrap");
     expect(await badge.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   }
+});
+
+test("admins can end a suspension with a reason and refreshed details; moderators cannot", async ({ page }) => {
+  const backend = await mockBackend(page);
+  let suspendedUntil: string | null = "2099-09-21T10:00:00Z";
+  await page.route(`**/api/v1/admin/users/${encodedId}`, (route) => route.fulfill({ json: { success: true, data: { user: { ...user, rideSuspendedUntil: suspendedUntil }, account: { role: "user" } } } }));
+  await page.route(`**/api/v1/admin/users/${encodedId}/unsuspend`, async (route) => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postDataJSON()).toEqual({ reason: "Appeal reviewed and accepted" });
+    suspendedUntil = null;
+    await route.fulfill({ json: { success: true, data: { suspendedUntil: null } } });
+  });
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Inspect Ayesha Khan" }).click();
+  await page.getByRole("combobox", { name: "Action", exact: true }).selectOption("unsuspend");
+  await expect(page.getByLabel("Duration (minutes)")).toHaveCount(0);
+  await page.getByLabel("Reason", { exact: true }).fill("Appeal reviewed and accepted");
+  await page.getByRole("button", { name: "Review action", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Confirm action" });
+  await expect(dialog).toContainText("Bans and verification restrictions remain in force.");
+  expect(suspendedUntil).not.toBeNull();
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.locator(".notice[role=status]")).toContainText("Temporary ride suspension lifted.");
+  await expect(page.locator('option[value="unsuspend"]')).toHaveCount(0);
+  expect(backend.calls.some((call) => call.path.endsWith("/unban"))).toBe(false);
+  suspendedUntil = "2099-09-21T10:00:00Z";
+  await page.route("**/api/auth/get-session", (route) => route.fulfill({ json: { user: { id: "staff-id", role: "moderator" } } }));
+  await page.reload();
+  await page.getByRole("button", { name: "Inspect Ayesha Khan" }).click();
+  await expect(page.getByRole("combobox", { name: "Action", exact: true })).toBeVisible();
+  await expect(page.locator('option[value="unsuspend"]')).toHaveCount(0);
 });
 
 test("account actions encode auth IDs, require confirmation, and show queued deletion without polling", async ({ page }) => {
@@ -316,7 +347,7 @@ test("verification approval removes the reviewed item and its document", async (
   await expect(page.getByRole("img", { name: "Front side verification document for Ayesha Khan", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Review decision" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect(page.getByText("No verifications are waiting for review.")).toBeVisible();
+  await expect(page.getByText("No verifications are waiting for review on this page.")).toBeVisible();
   await expect(page.getByRole("img", { name: /verification document/ })).toHaveCount(0);
   expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ status: "VERIFIED", rollNumber: "CS-001" });
 });
@@ -432,7 +463,7 @@ test("config validation rejects unsafe numbers and inconsistent thresholds; docu
 test("skeletons cover loading and refresh, then give way to records or errors", async ({ page }) => {
   await mockBackend(page);
   let release!: () => void;
-  await page.route("**/api/v1/admin/users", async (route) => {
+  await page.route("**/api/v1/admin/users?*", async (route) => {
     await new Promise<void>((resolve) => { release = resolve; });
     await route.fallback();
   });
@@ -489,7 +520,7 @@ test("failed document images prevent approval but still allow rejection", async 
   await page.getByLabel("Review reason", { exact: true }).fill("Please upload readable images");
   await page.getByRole("button", { name: "Review decision" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect(page.getByText("No verifications are waiting for review.")).toBeVisible();
+  await expect(page.getByText("No verifications are waiting for review on this page.")).toBeVisible();
   expect(backend.calls.find((call) => call.method === "PATCH")?.body).toEqual({ status: "REJECTED", reason: "Please upload readable images" });
 });
 
@@ -525,4 +556,70 @@ test("report conflicts reload current status before another review", async ({ pa
   await expect(page.locator(".admin").getByRole("alert")).toContainText("Report changed; reload");
   await expect(page.getByRole("heading", { name: "Safety reports" })).toBeVisible();
   expect(backend.calls.filter((call) => call.path === "/api/v1/admin/reports" && call.method === "GET").length).toBeGreaterThan(2);
+});
+
+for (const [tab, endpoint, arrayKey] of [
+  ["Users", "users", "users"], ["Staff", "users", "users"],
+  ["Verifications", "verifications", "users"], ["Reports", "reports", "reports"],
+  ["Audit log", "audits", "audits"], ["Universities", "universities", "universities"],
+  ["Ride history", `users/${encodedId}/rides`, "rides"],
+]) {
+  test(`${tab} pages through results and returns from an empty last page`, async ({ page }) => {
+    await mockBackend(page, "admin", "admin");
+    const pages: number[] = [];
+    await page.route(`**/api/v1/admin/${endpoint}?*`, async (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      const current = Number(params.get("page"));
+      expect(params.get("limit")).toBe("10");
+      pages.push(current);
+      await route.fulfill({ json: { success: true, data: {
+        [arrayKey]: current === 1 && arrayKey === "users" ? [user] : [],
+        pagination: { page: current, limit: 10, hasPrevious: current > 1, hasNext: current === 1, nextPage: current === 1 ? 2 : null },
+      } } });
+    });
+    await page.goto("/admin");
+    if (tab === "Ride history") await page.getByRole("button", { name: "Inspect Ayesha Khan" }).click();
+    else if (tab !== "Users") await page.getByRole("button", { name: tab, exact: true }).click();
+    const controls = page.getByRole("navigation", { name: "Pagination" });
+    await expect(controls.getByRole("button", { name: "Previous" })).toBeDisabled();
+    await expect(controls.getByRole("button", { name: "Next" })).toBeEnabled();
+    await controls.getByRole("button", { name: "Next" }).click();
+    await expect(controls).toContainText("Page 2");
+    await expect(controls.getByRole("button", { name: "Previous" })).toBeEnabled();
+    await expect(controls.getByRole("button", { name: "Next" })).toBeDisabled();
+    await controls.getByRole("button", { name: "Previous" }).click();
+    await expect(controls.getByRole("button", { name: "Next" })).toBeEnabled();
+    expect(pages.slice(-3)).toEqual([1, 2, 1]);
+  });
+}
+
+test("user pagination preserves filters, resets on changes, and hides stale rows while loading", async ({ page }) => {
+  await mockBackend(page);
+  let release: (() => void) | undefined;
+  const queries: string[] = [];
+  await page.route("**/api/v1/admin/users?*", async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    queries.push(params.toString());
+    const current = Number(params.get("page"));
+    if (current === 2) await new Promise<void>((resolve) => { release = resolve; });
+    await route.fulfill({ json: { success: true, data: {
+      users: [{ ...user, fullName: current === 1 ? "First account" : "Second account" }],
+      pagination: { page: current, limit: 10, hasPrevious: current > 1, hasNext: current === 1, nextPage: current === 1 ? 2 : null },
+    } } });
+  });
+  await page.goto("/admin");
+  await page.getByRole("combobox", { name: "Verification status", exact: true }).selectOption("VERIFIED");
+  const controls = page.getByRole("navigation", { name: "Pagination" });
+  await expect(controls.getByRole("button", { name: "Next" })).toBeEnabled();
+  await controls.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByText("First account", { exact: true })).toHaveCount(0);
+  await expect(controls.getByRole("button", { name: "Previous" })).toBeDisabled();
+  await expect.poll(() => release !== undefined).toBe(true);
+  release!();
+  await expect(page.getByText("Second account", { exact: true })).toBeVisible();
+  expect(queries.at(-1)).toBe("verificationStatus=VERIFIED&page=2&limit=10");
+  await page.getByRole("combobox", { name: "Verification status", exact: true }).selectOption("REJECTED");
+  await expect(page.getByText("First account", { exact: true })).toBeVisible();
+  expect(queries.at(-1)).toBe("verificationStatus=REJECTED&page=1&limit=10");
+  await expect(controls.getByRole("button", { name: "Previous" })).toBeDisabled();
 });

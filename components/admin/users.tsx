@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { roles, safeDocumentUrl, type Ride, type UserDetail, type UserRow, type VerificationUser } from "@/lib/admin-api";
-import { Badge, date, ResourceState, useAdmin, useResource } from "./dashboard";
+import { Badge, date, ResourceState, useAdmin, useResource, usePaginatedResource, PageControls } from "./dashboard";
 
 export function UsersPanel({ staff = false }: { staff?: boolean }) {
   const [selected, setSelected] = useState<string>();
@@ -25,15 +25,17 @@ export function UsersPanel({ staff = false }: { staff?: boolean }) {
 
 function StaffList({ onSelect }: { onSelect: (id: string) => void }) {
   const { read, blocked } = useAdmin();
-  const [result, setResult] = useState<{ data?: UserDetail[]; loading: boolean; error?: Error }>({ loading: true });
+  const [result, setResult] = useState<{ source?: unknown; data?: UserDetail[]; loading: boolean; error?: Error }>({ loading: true });
   const [role, setRole] = useState("");
   const [search, setSearch] = useState("");
+  const pageResult = usePaginatedResource<{ users: UserRow[] }>("/users", JSON.stringify([role, search]));
   useEffect(() => {
+    if (!pageResult.data) return;
     const controller = new AbortController();
     async function load() {
-      const { users } = await read<{ users: UserRow[] }>("/users", controller.signal);
+      const users = pageResult.data!.users;
       const staff: UserDetail[] = [];
-      // ponytail: limited to 100 recent users; replace with a role-filtered staff endpoint when available.
+      // ponytail: staff filtering is per user page until the API provides a role filter.
       for (let index = 0; index < users.length; index += 5) {
         const details = await Promise.all(users.slice(index, index + 5).map((user) => read<UserDetail>(`/users/${encodeURIComponent(user.authUserId)}`, controller.signal)));
         staff.push(...details.filter(({ account }) => roles(account?.role).some((value) => value === "admin" || value === "moderator")));
@@ -41,11 +43,11 @@ function StaffList({ onSelect }: { onSelect: (id: string) => void }) {
       return staff;
     }
     load().then(
-      (data) => { if (!controller.signal.aborted) setResult({ data, loading: false }); },
-      (error) => { if (!controller.signal.aborted) setResult({ error, loading: false }); },
+      (data) => { if (!controller.signal.aborted) setResult({ source: pageResult.data, data, loading: false }); },
+      (error) => { if (!controller.signal.aborted) setResult({ source: pageResult.data, error, loading: false }); },
     );
     return () => controller.abort();
-  }, [read]);
+  }, [read, pageResult.data]);
   const filtered = (result.data ?? []).filter(({ user, account }) => (!role || roles(account?.role).includes(role)) && `${user.fullName} ${user.email}`.toLowerCase().includes(search.trim().toLowerCase()));
   return <div className="stack">
     <div className="panel row toolbar">
@@ -55,9 +57,9 @@ function StaffList({ onSelect }: { onSelect: (id: string) => void }) {
       </select></label>
     </div>
     <section className="panel stack">
-      <div><h2>Staff directory</h2><p className="muted">Admins and moderators among the 100 most recent accounts.</p></div>
-      <ResourceState {...result}>
-        {!filtered.length ? <p className="empty">No staff match your filters.</p> : <div className="table-wrap"><table>
+      <div><h2>Staff directory</h2><p className="muted">Admins and moderators on this page of accounts. Search and role filters apply to the current page; use Next to check more accounts.</p></div>
+      <ResourceState loading={!pageResult.error && (pageResult.loading || result.source !== pageResult.data || result.loading)} error={pageResult.error ?? result.error}>
+        {!filtered.length ? <p className="empty">No staff match your filters on this page.</p> : <div className="table-wrap"><table>
           <thead><tr><th scope="col">Staff member</th><th scope="col">Role</th><th scope="col">Action</th></tr></thead>
           <tbody>{filtered.map(({ user, account }) => <tr key={user.authUserId}>
             <td><strong>{user.fullName}</strong><p className="muted">{user.email}</p></td>
@@ -66,6 +68,7 @@ function StaffList({ onSelect }: { onSelect: (id: string) => void }) {
           </tr>)}</tbody>
         </table></div>}
       </ResourceState>
+      <PageControls result={{ ...pageResult, loading: !pageResult.error && (pageResult.loading || result.source !== pageResult.data) }} />
     </section>
   </div>;
 }
@@ -85,18 +88,18 @@ function UsersList({ onSelect }: { onSelect: (id: string) => void }) {
 }
 
 function UserResults({ filter, search, onSelect }: { filter: string; search: string; onSelect: (id: string) => void }) {
-  const result = useResource<{ users: UserRow[] }>(`/users${filter ? `?verificationStatus=${filter}` : ""}`);
+  const result = usePaginatedResource<{ users: UserRow[] }>(`/users${filter ? `?verificationStatus=${filter}` : ""}`, search);
   const { blocked } = useAdmin();
   const users = result.data?.users ?? [];
   const filtered = users.filter((user) => `${user.fullName} ${user.email}`.toLowerCase().includes(search.toLowerCase().trim()));
-  return <ResourceState {...result} layout="overview">
+  return <div className="stack"><ResourceState {...result} layout="overview">
     <div className="stack">
       <div className="metrics">
         <div className="panel"><p className="muted">Loaded accounts</p><p className="metric">{users.length}</p></div>
         <div className="panel"><p className="muted">Verified in this list</p><p className="metric">{users.filter((user) => user.verificationStatus === "VERIFIED").length}</p></div>
         <div className="panel"><p className="muted">Blocked in this list</p><p className="metric">{users.filter((user) => user.isBlocked || user.ridePermanentlyBanned).length}</p></div>
       </div>
-      <section className="panel stack"><div><h2>User directory</h2><p className="muted">Up to 100 most recent accounts. Search applies to this loaded list.</p></div>
+      <section className="panel stack"><div><h2>User directory</h2><p className="muted">Newest accounts first, 10 per page. Search applies to the current page.</p></div>
         {!filtered.length ? <p className="empty">No users match your search.</p> : <div className="table-wrap"><table>
           <thead><tr><th scope="col">User</th><th scope="col">Verification</th><th scope="col">Account</th><th scope="col">Joined</th><th scope="col">Action</th></tr></thead>
           <tbody>{filtered.map((user) => <tr key={user.authUserId}>
@@ -108,7 +111,7 @@ function UserResults({ filter, search, onSelect }: { filter: string; search: str
         </table></div>}
       </section>
     </div>
-  </ResourceState>;
+  </ResourceState><PageControls result={result} /></div>;
 }
 
 export function VerificationsPanel() {
@@ -118,14 +121,14 @@ export function VerificationsPanel() {
 }
 
 function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
-  const result = useResource<{ users: VerificationUser[] }>("/verifications");
+  const result = usePaginatedResource<{ users: VerificationUser[] }>("/verifications");
   const catalog = useResource<{ universities: { _id: string; name: string }[] }>("/api/v1/universities");
   const { blocked } = useAdmin();
   const users = result.data?.users ?? [];
   return <section className="panel stack">
-    <div><h2>Student verification queue</h2><p className="muted">Oldest pending or under-review submissions first. Up to 100 records.</p></div>
+    <div><h2>Student verification queue</h2><p className="muted">Oldest pending or under-review submissions first, 10 per page.</p></div>
     <ResourceState {...result}>
-      {!users.length ? <p className="empty">No verifications are waiting for review.</p> : <div className="table-wrap"><table>
+      {!users.length ? <p className="empty">No verifications are waiting for review on this page.</p> : <div className="table-wrap"><table>
         <thead><tr><th scope="col">Student</th><th scope="col">University</th><th scope="col">Status</th><th scope="col">Document</th><th scope="col">Action</th></tr></thead>
         <tbody>{users.map((user) => <tr key={user.authUserId}>
           <td><strong>{user.fullName}</strong><p className="muted">{user.email}</p></td>
@@ -135,6 +138,7 @@ function VerificationQueue({ onSelect }: { onSelect: (id: string) => void }) {
         </tr>)}</tbody>
       </table></div>}
     </ResourceState>
+    <PageControls result={result} />
   </section>;
 }
 
@@ -250,6 +254,7 @@ const userActions = [
   ["unban", "Unban account", "The account ban will be removed."],
   ["verification-revoke", "Revoke verification", "Verification returns to pending and accepted, unstarted rides will be cancelled."],
   ["role", "Change role", "Target sessions will be revoked."],
+  ["unsuspend", "End suspension", "The temporary ride suspension will be lifted. Bans and verification restrictions remain in force."],
   ["password", "Change password", "The password will be replaced and target sessions revoked."],
   ["sessions/revoke", "Revoke sessions", "The user will be signed out on all devices."],
   ["delete", "Delete account", "Account deletion will be queued and processed asynchronously. This cannot be undone."],
@@ -259,7 +264,7 @@ function UserActions({ id, user, staff = false, currentRole, onDone }: { id: str
   const { isAdmin, blocked, mutate, notify } = useAdmin();
   const [action, setAction] = useState<string>(staff ? "role" : "suspend");
   const [error, setError] = useState("");
-  const available = userActions.filter(([value], index) => (isAdmin || index < 4) && (value !== "verification-revoke" || user.verificationStatus === "VERIFIED"));
+  const available = userActions.filter(([value], index) => (isAdmin || index < 4) && (value !== "verification-revoke" || user.verificationStatus === "VERIFIED") && (value !== "unsuspend" || !!user.rideSuspendedUntil));
   const chosen = available.find(([value]) => value === action)!;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -274,12 +279,13 @@ function UserActions({ id, user, staff = false, currentRole, onDone }: { id: str
     if (action === "password") body.newPassword = String(fields.get("newPassword"));
     setError("");
     const path = action === "verification-revoke" ? `/verifications/${encodeURIComponent(id)}/revoke` : `/users/${encodeURIComponent(id)}/${action}`;
-    const result = await mutate<{ deletionJobId?: string; status?: string; suspendedUntil?: string }>(path, "POST", body, `${chosen[1]}${action === "role" ? ` to ${body.role}` : ""} for ${user.fullName} (${user.email})?\n${chosen[2]}${action === "role" ? " This replaces all existing roles; the user must sign in again." : ""}\nReason: ${reason}`);
+    const result = await mutate<{ deletionJobId?: string; status?: string; suspendedUntil?: string | null }>(path, "POST", body, `${chosen[1]}${action === "role" ? ` to ${body.role}` : ""} for ${user.fullName} (${user.email})?\n${chosen[2]}${action === "role" ? " This replaces all existing roles; the user must sign in again." : ""}\nReason: ${reason}`);
     // Clear password input even after a failed or cancelled attempt.
     if (action === "password") form.reset();
     if (result) {
       if (action === "delete") notify(`Deletion queued. Job ${result.deletionJobId} · ${result.status}. Processing continues in the background.`);
       else if (result.suspendedUntil) notify(`Rides suspended until ${date(result.suspendedUntil)}.`);
+      else if (action === "unsuspend") notify("Temporary ride suspension lifted.");
       else if (action === "role") notify(`Role changed to ${body.role}. ${user.fullName} must sign in again.`);
       onDone(action === "delete");
     }
@@ -301,11 +307,11 @@ function UserActions({ id, user, staff = false, currentRole, onDone }: { id: str
 }
 
 function RideHistory({ id }: { id: string }) {
-  const result = useResource<{ rides: Ride[] }>(`/users/${encodeURIComponent(id)}/rides`);
+  const result = usePaginatedResource<{ rides: Ride[] }>(`/users/${encodeURIComponent(id)}/rides`);
   return <section className="panel stack"><h2>Ride history</h2><ResourceState {...result}>
-    {!result.data?.rides.length ? <p className="empty">No rides found for this user.</p> : <div className="table-wrap"><table>
+    {!result.data?.rides.length ? <p className="empty">No rides on this page.</p> : <div className="table-wrap"><table>
       <thead><tr><th scope="col">Route</th><th scope="col">Status</th><th scope="col">Agreed price</th><th scope="col">Created</th></tr></thead>
       <tbody>{result.data.rides.map((ride) => <tr key={ride._id}><td>{ride.pickup.displayName} → {ride.destination.displayName}<p className="id muted">{ride._id}</p></td><td><Badge status={ride.status} /></td><td>PKR {ride.agreedPrice}</td><td>{date(ride.createdAt)}</td></tr>)}</tbody>
     </table></div>}
-  </ResourceState></section>;
+  </ResourceState><PageControls result={result} /></section>;
 }

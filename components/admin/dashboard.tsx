@@ -28,17 +28,37 @@ export function useAdmin() {
 
 export function useResource<T>(path: string) {
   const { read } = useAdmin();
-  const [result, setResult] = useState<{ data?: T; loading: boolean; error?: ApiError }>({ loading: true });
+  const [result, setResult] = useState<{ path?: string; data?: T; loading: boolean; error?: ApiError }>({ loading: true });
   useEffect(() => {
     const controller = new AbortController();
-    // The owner changes its key when the path changes, so stale detail data is never displayed.
     read<T>(path, controller.signal).then(
-      (data) => { if (!controller.signal.aborted) setResult({ data, loading: false }); },
-      (error) => { if (!controller.signal.aborted) setResult({ error, loading: false }); },
+      (data) => { if (!controller.signal.aborted) setResult({ path, data, loading: false }); },
+      (error) => { if (!controller.signal.aborted) setResult({ path, error, loading: false }); },
     );
     return () => controller.abort();
   }, [path, read]);
-  return result;
+  return result.path === path ? result : { loading: true };
+}
+
+type Pagination = { page: number; limit: number; hasNext: boolean; hasPrevious: boolean; nextPage: number | null };
+
+export function usePaginatedResource<T>(path: string, filter = "") {
+  const key = JSON.stringify([path, filter]);
+  const [position, setPosition] = useState({ key, page: 1 });
+  const page = position.key === key ? position.page : 1;
+  if (position.key !== key) setPosition({ key, page: 1 });
+  const result = useResource<T & { pagination: Pagination }>(`${path}${path.includes("?") ? "&" : "?"}page=${page}&limit=10`);
+  return { ...result, page, setPage: (page: number) => setPosition({ key, page }) };
+}
+
+export function PageControls({ result }: { result: { data?: { pagination: Pagination }; loading: boolean; page: number; setPage: (page: number) => void } }) {
+  const { blocked } = useAdmin();
+  const pagination = result.data?.pagination;
+  return <nav className="row toolbar" aria-label="Pagination">
+    <button disabled={blocked || result.loading || result.page <= 1 || pagination?.hasPrevious === false} onClick={() => result.setPage(result.page - 1)}>Previous</button>
+    <span aria-live="polite">Page {result.page}</span>
+    <button disabled={blocked || result.loading || !pagination?.hasNext || pagination.nextPage === null} onClick={() => { if (pagination?.nextPage) result.setPage(pagination.nextPage); }}>Next</button>
+  </nav>;
 }
 
 export function Badge({ status }: { status: string }) {
@@ -156,9 +176,9 @@ export default function AdminDashboard() {
       ].filter(Boolean).join(" · ") || "Target record reloaded.";
       let audits = "Audit history is admin-only. Ask an administrator to check the outcome before retrying.";
       if (isAdmin) {
-        const { audits: entries } = await read<{ audits: import("@/lib/admin-api").Audit[] }>("/audits", controller.signal);
+        const { audits: entries } = await read<{ audits: import("@/lib/admin-api").Audit[] }>("/audits?page=1&limit=10", controller.signal);
         const relevant = entries.filter((entry) => parts[1] === "users" || parts[1] === "verifications" ? entry.targetAuthUserId === decodeURIComponent(parts[2]) : parts[1] === "reports" ? entry.details?.reportId === decodeURIComponent(parts[2]) : parts[1] === "config" ? entry.action === "CONFIG_UPDATED" : entry.action.startsWith("UNIVERSITY_"));
-        audits = relevant.slice(0, 5).map((entry) => `${entry.action}: ${entry.outcome} (${entry.createdAt})`).join("; ") || "No matching entry in the latest 100 audits. Absence does not establish that the write failed.";
+        audits = relevant.slice(0, 5).map((entry) => `${entry.action}: ${entry.outcome} (${entry.createdAt})`).join("; ") || "No matching entry on the first page of audits. Absence does not establish that the write failed.";
       }
       setRecovery({ path, summary, audits });
       setRevision((value) => value + 1);

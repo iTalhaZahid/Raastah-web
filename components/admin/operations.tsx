@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { adminRoot, request, configFields, configPatch, safeDocumentUrl, type AdminConfig, type Audit, type Evidence, type Report, type UserDetail } from "@/lib/admin-api";
-import { Badge, date, ResourceState, useAdmin, useResource } from "./dashboard";
+import { Badge, date, ResourceState, useAdmin, useResource, usePaginatedResource, PageControls } from "./dashboard";
 
 export function ReportsPanel() {
   const [selected, setSelected] = useState<string>();
@@ -12,16 +12,16 @@ export function ReportsPanel() {
 }
 
 function ReportsList({ onSelect }: { onSelect: (id: string) => void }) {
-  const result = useResource<{ reports: Report[] }>("/reports");
   const { blocked } = useAdmin();
   const [status, setStatus] = useState("");
+  const result = usePaginatedResource<{ reports: Report[] }>("/reports", status);
   const reports = (result.data?.reports ?? []).filter((report) => !status || report.status === status);
   return <section className="panel stack">
-    <div className="row between"><div><h2>Safety reports</h2><p className="muted">Most recent reports first. Filters apply to the loaded records.</p></div>
+    <div className="row between"><div><h2>Safety reports</h2><p className="muted">Most recent reports first. 10 per page. Filters apply to the current page.</p></div>
       <label>Report status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option>{["SUBMITTED", "VALIDATED", "REJECTED", "RESOLVED"].map((value) => <option key={value}>{value}</option>)}</select></label>
     </div>
     <ResourceState {...result}>
-      {!reports.length ? <p className="empty">No reports match this status.</p> : <div className="table-wrap"><table>
+      {!reports.length ? <p className="empty">No reports match this status on this page.</p> : <div className="table-wrap"><table>
         <thead><tr><th scope="col">Report</th><th scope="col">Status</th><th scope="col">Submitted</th><th scope="col">Action</th></tr></thead>
         <tbody>{reports.map((report) => <tr key={report._id}>
           <td><strong>{report.reason.replaceAll("_", " ")}</strong><p className="id muted">{report._id}</p></td>
@@ -30,6 +30,7 @@ function ReportsList({ onSelect }: { onSelect: (id: string) => void }) {
         </tr>)}</tbody>
       </table></div>}
     </ResourceState>
+    <PageControls result={result} />
   </section>;
 }
 
@@ -146,8 +147,8 @@ function ConfigEditor({ initial }: { initial: AdminConfig }) {
 }
 
 export function AuditsPanel() {
-  const result = useResource<{ audits: Audit[] }>("/audits");
   const [search, setSearch] = useState("");
+  const result = usePaginatedResource<{ audits: Audit[] }>("/audits", search);
   const [names, setNames] = useState<Record<string, string>>({});
   useEffect(() => {
     const controller = new AbortController();
@@ -171,10 +172,10 @@ export function AuditsPanel() {
   }, [result.data]);
   const audits = (result.data?.audits ?? []).filter((audit) => `${audit.action.replaceAll("_", " ")} ${audit.action} ${names[audit.actorAuthUserId] ?? ""} ${audit.actorAuthUserId} ${names[audit.targetAuthUserId ?? ""] ?? ""} ${audit.targetAuthUserId ?? ""} ${audit.details?.configKey ?? ""} ${audit.details?.reportId ?? ""} ${audit.details?.name ?? ""} ${audit.details?.universityId ?? ""} ${audit.reason}`.toLowerCase().includes(search.trim().toLowerCase()));
   return <section className="panel stack">
-    <div><h2>Admin action history</h2><p className="muted">User, university, configuration, and report actions. Loaded audit records, newest first. Names reflect current accounts; unavailable accounts show IDs.</p></div>
+    <div><h2>Admin action history</h2><p className="muted">User, university, configuration, and report actions. Newest first, 10 per page. Search applies to the current page. Names reflect current accounts; unavailable accounts show IDs.</p></div>
     <label>Search loaded audits<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Action, name, staff ID, target ID, or reason" /></label>
     <ResourceState {...result}>
-      {!audits.length ? <p className="empty">No audit records match your search.</p> : <div className="table-wrap"><table>
+      {!audits.length ? <p className="empty">No audit records match your search on this page.</p> : <div className="table-wrap"><table>
         <thead><tr><th scope="col">Action / reason</th><th scope="col">Staff / target</th><th scope="col">Outcome</th><th scope="col">Time</th></tr></thead>
         <tbody>{audits.map((audit) => <tr key={audit._id}>
           <td><strong>{audit.action.replaceAll("_", " ")}</strong><p className="muted">{audit.reason}</p>{audit.failureMessage && <p>{audit.failureMessage}</p>}</td>
@@ -183,5 +184,6 @@ export function AuditsPanel() {
         </tr>)}</tbody>
       </table></div>}
     </ResourceState>
+    <PageControls result={result} />
   </section>;
 }
