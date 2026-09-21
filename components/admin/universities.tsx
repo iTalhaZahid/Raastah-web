@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ResourceState, useAdmin, useResource } from "./dashboard";
+import { ResourceState, useAdmin, usePaginatedResource, PageControls } from "./dashboard";
 
 type University = { _id: string; name: string };
 
@@ -11,7 +11,7 @@ export function UniversitiesPanel() {
 }
 
 function UniversityCatalog({ onUpdated }: { onUpdated: () => void }) {
-  const result = useResource<{ universities: University[] }>("/universities");
+  const result = usePaginatedResource<{ universities: University[] }>("/universities");
   const { blocked, mutate } = useAdmin();
   const [error, setError] = useState("");
 
@@ -38,7 +38,7 @@ function UniversityCatalog({ onUpdated }: { onUpdated: () => void }) {
       <div><button className="primary" type="submit">Add university</button></div>
     </fieldset></form>
     <ResourceState {...result}>
-      {!result.data?.universities.length ? <p className="empty">No universities available. Add one above.</p> :
+      {!result.data?.universities.length ? <p className="empty">No universities on this page. Add one above or return to a previous page.</p> :
         <ul className="stack" aria-label="Universities">{result.data.universities.map((university) =>
           <li className="row between" key={university._id}>
             <strong style={{ overflowWrap: "anywhere", minWidth: 0 }}>{university.name}</strong>
@@ -46,5 +46,6 @@ function UniversityCatalog({ onUpdated }: { onUpdated: () => void }) {
           </li>)}
         </ul>}
     </ResourceState>
+    <PageControls result={result} />
   </section>;
 }
