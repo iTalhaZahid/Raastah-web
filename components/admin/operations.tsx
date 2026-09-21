@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { configFields, configPatch, safeDocumentUrl, type AdminConfig, type Audit, type Evidence, type Report } from "@/lib/admin-api";
+import { adminRoot, request, configFields, configPatch, safeDocumentUrl, type AdminConfig, type Audit, type Evidence, type Report, type UserDetail } from "@/lib/admin-api";
 import { Badge, date, ResourceState, useAdmin, useResource } from "./dashboard";
 
 export function ReportsPanel() {
@@ -148,16 +148,37 @@ function ConfigEditor({ initial }: { initial: AdminConfig }) {
 export function AuditsPanel() {
   const result = useResource<{ audits: Audit[] }>("/audits");
   const [search, setSearch] = useState("");
-  const audits = (result.data?.audits ?? []).filter((audit) => `${audit.action} ${audit.actorAuthUserId} ${audit.targetAuthUserId ?? ""} ${audit.details?.configKey ?? ""} ${audit.details?.reportId ?? ""} ${audit.details?.name ?? ""} ${audit.details?.universityId ?? ""} ${audit.reason}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const [names, setNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const controller = new AbortController();
+    const ids = [...new Set((result.data?.audits ?? []).flatMap((audit) => [audit.actorAuthUserId, ...(audit.targetAuthUserId ? [audit.targetAuthUserId] : [])]))];
+    async function loadNames() {
+      for (let index = 0; index < ids.length && !controller.signal.aborted; index += 5) {
+        const entries = await Promise.all(ids.slice(index, index + 5).map(async (id) => {
+          try {
+            const response = await request<{ success: true; data: UserDetail }>(`${adminRoot}/users/${encodeURIComponent(id)}`, { signal: controller.signal });
+            return [id, response.data.user.fullName?.trim() || response.data.account?.name?.trim() || id] as const;
+          } catch {
+            // Optional enrichment: deleted or unavailable accounts retain their audit IDs.
+            return [id, id] as const;
+          }
+        }));
+        if (!controller.signal.aborted) setNames((current) => ({ ...current, ...Object.fromEntries(entries) }));
+      }
+    }
+    void loadNames();
+    return () => controller.abort();
+  }, [result.data]);
+  const audits = (result.data?.audits ?? []).filter((audit) => `${audit.action.replaceAll("_", " ")} ${audit.action} ${names[audit.actorAuthUserId] ?? ""} ${audit.actorAuthUserId} ${names[audit.targetAuthUserId ?? ""] ?? ""} ${audit.targetAuthUserId ?? ""} ${audit.details?.configKey ?? ""} ${audit.details?.reportId ?? ""} ${audit.details?.name ?? ""} ${audit.details?.universityId ?? ""} ${audit.reason}`.toLowerCase().includes(search.trim().toLowerCase()));
   return <section className="panel stack">
-    <div><h2>Admin action history</h2><p className="muted">User, university, configuration, and report actions. Up to 100 most recent audit records, newest first.</p></div>
-    <label>Search loaded audits<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Action, staff ID, target ID, or reason" /></label>
+    <div><h2>Admin action history</h2><p className="muted">User, university, configuration, and report actions. Loaded audit records, newest first. Names reflect current accounts; unavailable accounts show IDs.</p></div>
+    <label>Search loaded audits<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Action, name, staff ID, target ID, or reason" /></label>
     <ResourceState {...result}>
       {!audits.length ? <p className="empty">No audit records match your search.</p> : <div className="table-wrap"><table>
         <thead><tr><th scope="col">Action / reason</th><th scope="col">Staff / target</th><th scope="col">Outcome</th><th scope="col">Time</th></tr></thead>
         <tbody>{audits.map((audit) => <tr key={audit._id}>
           <td><strong>{audit.action.replaceAll("_", " ")}</strong><p className="muted">{audit.reason}</p>{audit.failureMessage && <p>{audit.failureMessage}</p>}</td>
-          <td><p className="id">{audit.actorAuthUserId}</p><p className="muted">{audit.actorRole} →</p><p className="id">{audit.targetAuthUserId ?? audit.details?.configKey ?? audit.details?.reportId ?? audit.details?.name ?? audit.details?.universityId ?? "—"}</p></td>
+          <td><p title={audit.actorAuthUserId}>{names[audit.actorAuthUserId] ?? audit.actorAuthUserId}</p><p className="muted">{audit.actorRole} →</p><p title={audit.targetAuthUserId}>{audit.targetAuthUserId ? names[audit.targetAuthUserId] ?? audit.targetAuthUserId : audit.details?.configKey ?? audit.details?.reportId ?? audit.details?.name ?? audit.details?.universityId ?? "—"}</p></td>
           <td><Badge status={audit.outcome} /></td><td>{date(audit.createdAt)}</td>
         </tr>)}</tbody>
       </table></div>}

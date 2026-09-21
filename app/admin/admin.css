@@ -32,7 +32,7 @@
 .admin .error { border-color: #793c37; background: #291815; color: #ffb6b1; }
 .admin .error-toast { position: fixed; top: 24px; right: 24px; z-index: 110; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; box-shadow: 0 12px 40px #0008; }
 .admin .error-toast span { flex: 1; min-width: 0; }
-.admin .badge { display: inline-block; max-width: 100%; padding: 5px 9px; border-radius: 6px; background: #26352b; color: #c8e7ce; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+.admin .badge { display: inline-block; padding: 5px 9px; border-radius: 6px; background: #26352b; color: #c8e7ce; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .admin .badge[data-status=REJECTED], .admin .badge[data-status=FAILED], .admin .badge[data-status=CANCELLED] { background: #3b2421; color: #ffb6b1; }
 .admin .badge[data-status=PENDING], .admin .badge[data-status=SUBMITTED], .admin .badge[data-status=UNDER_REVIEW] { background: #38311b; color: #f7d68c; }
 .admin .shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 100vh; }
@@ -52,6 +52,7 @@
 .admin th { color: #a5b0a8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
 .admin td, .admin th { padding: 16px 12px; border-bottom: 1px solid #29322c; }
 .admin td { overflow-wrap: anywhere; }
+.admin td button { white-space: nowrap; }
 .admin tbody tr:last-child td { border-bottom: 0; }
 .admin .table-wrap table { min-width: 620px; }
 .admin .id { font-family: monospace; font-size: 12px; overflow-wrap: anywhere; }
