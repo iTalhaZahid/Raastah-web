@@ -67,7 +67,7 @@ export type VerificationUser = Pick<UserRow, "_id" | "authUserId" | "fullName" |
 };
 export type UserDetail = {
   user: UserRow & VerificationUser & { userMode: string; onboardingCompleted: boolean };
-  account: { id: string; role?: string; banned?: boolean; banReason?: string; banExpires?: string; emailVerified: boolean } | null;
+  account: { id: string; name?: string; role?: string; banned?: boolean; banReason?: string; banExpires?: string; emailVerified: boolean } | null;
 };
 export type Ride = {
   _id: string; status: string; pickup: { displayName: string }; destination: { displayName: string };

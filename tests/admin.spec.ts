@@ -236,6 +236,44 @@ test("audits show and search configuration and report targets without a user ID"
   await expect(page.getByRole("cell", { name: /Test University/ })).toBeVisible();
 });
 
+test("audit names resolve once per account, remain searchable by ID, and fall back for deleted users", async ({ page }) => {
+  const backend = await mockBackend(page);
+  await page.route("**/api/v1/admin/users/staff-id", (route) => route.fulfill({ json: { success: true, data: { user: { fullName: "" }, account: { name: "Admin Reviewer" } } } }));
+  await page.route("**/api/v1/admin/audits", (route) => route.fulfill({ json: { success: true, data: { audits: [
+    { _id: "audit-1", actorAuthUserId: "staff-id", targetAuthUserId: authId, actorRole: "admin", action: "USER_RIDE_SUSPENDED", reason: "Review complete", outcome: "SUCCEEDED" },
+    { _id: "audit-2", actorAuthUserId: "staff-id", targetAuthUserId: "deleted-user", actorRole: "admin", action: "USER_DELETED", reason: "Deletion requested", outcome: "SUCCEEDED" },
+  ] } } }));
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Audit log", exact: true }).click();
+  await expect(page.getByRole("cell", { name: "Admin Reviewer admin → Ayesha Khan" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /deleted-user/ })).toBeVisible();
+  expect(backend.calls.filter((call) => call.path === `/api/v1/admin/users/${encodedId}`)).toHaveLength(1);
+  await page.getByLabel("Search loaded audits").fill("Ayesha");
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await page.getByLabel("Search loaded audits").fill(authId);
+  await expect(page.getByRole("cell", { name: /Ayesha Khan/ })).toBeVisible();
+  await page.getByLabel("Search loaded audits").fill("user ride suspended");
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await expect(page.locator(".admin").getByRole("alert")).toHaveCount(0);
+});
+
+test("ride status badges stay on one line beside long addresses", async ({ page }) => {
+  await mockBackend(page);
+  await page.route("**/rides", (route) => route.fulfill({ json: { success: true, data: { rides: [{
+    _id: "ride-1", status: "CANCELLED", pickup: { displayName: "Stadium Road, Old City Bahawalpur, Bahawalpur, 63100, Pakistan" },
+    destination: { displayName: "9MMV+H6V, Anwarabad Colony, Bahawalpur, 63100, Pakistan" }, agreedPrice: 70, createdAt: "2026-09-21T10:41:23Z",
+  }] } } }));
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Inspect Ayesha Khan" }).click();
+  const badge = page.locator('.badge[data-status="CANCELLED"]');
+  await expect(badge).toBeVisible();
+  for (const width of [1510, 800, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(badge).toHaveCSS("white-space", "nowrap");
+    expect(await badge.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+});
+
 test("account actions encode auth IDs, require confirmation, and show queued deletion without polling", async ({ page }) => {
   const backend = await mockBackend(page);
   await page.goto("/admin");
