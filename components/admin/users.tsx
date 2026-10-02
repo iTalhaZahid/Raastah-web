@@ -161,6 +161,12 @@ function UserInspector({ id, verification = false, staff = false, onClose, onUpd
           <div><dt>Application user ID</dt><dd className="id">{user._id}</dd></div>
           <div><dt>Role</dt><dd>{account?.role || "user"}</dd></div>
           <div><dt>Student-selected university</dt><dd>{catalog.data?.universities.find((item) => item._id === user.university)?.name ?? user.university ?? "Not provided"}</dd></div>
+          <div><dt>Verification method</dt><dd>{user.verificationMethod?.replaceAll("_", " ") ?? "Not provided"}</dd></div>
+          <div><dt>University email</dt><dd>{user.universityEmail ?? "Not provided"}</dd></div>
+          <div><dt>University domain</dt><dd>{user.universityDomain ?? "Not provided"}</dd></div>
+          <div><dt>University email student ID</dt><dd>{user.universityEmailStudentId ?? "Not provided"}</dd></div>
+          <div><dt>Roll number</dt><dd>{user.rollNumber ?? "Not provided"}</dd></div>
+          <div><dt>Historical email verification</dt><dd>{user.universityEmailVerified ? `Previously verified (${date(user.universityEmailVerifiedAt ?? undefined)})` : "Not verified"}. Current student access depends on verification status.</dd></div>
           <div><dt>Joined</dt><dd>{date(user.createdAt)}</dd></div>
           <div><dt>Account access</dt><dd>{user.isDeleted ? "Deleted" : account?.banned ? "Banned" : user.isBlocked ? "Blocked" : "Active"}</dd></div>
           <div><dt>Ride suspension ends</dt><dd>{date(user.rideSuspendedUntil)}</dd></div>

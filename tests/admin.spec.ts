@@ -550,12 +550,13 @@ test("report conflicts reload current status before another review", async ({ pa
   await page.getByRole("button", { name: "Reports", exact: true }).click();
   await page.getByRole("button", { name: /Review report/ }).click();
   await page.getByLabel("Review note").fill("Evidence reviewed");
+  const readsBeforeConflict = backend.calls.filter((call) => call.path === "/api/v1/admin/reports" && call.method === "GET").length;
   backend.failNext({ path: "/api/v1/admin/reports/507f1f77bcf86cd799439012", status: 409, body: { message: "Report changed; reload" } });
   await page.getByRole("button", { name: "Review status change" }).click();
   await page.getByRole("dialog", { name: "Confirm action" }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(page.locator(".admin").getByRole("alert")).toContainText("Report changed; reload");
   await expect(page.getByRole("heading", { name: "Safety reports" })).toBeVisible();
-  expect(backend.calls.filter((call) => call.path === "/api/v1/admin/reports" && call.method === "GET").length).toBeGreaterThan(2);
+  await expect.poll(() => backend.calls.filter((call) => call.path === "/api/v1/admin/reports" && call.method === "GET").length).toBeGreaterThan(readsBeforeConflict);
 });
 
 for (const [tab, endpoint, arrayKey] of [
@@ -622,4 +623,37 @@ test("user pagination preserves filters, resets on changes, and hides stale rows
   await expect(page.getByText("First account", { exact: true })).toBeVisible();
   expect(queries.at(-1)).toBe("verificationStatus=REJECTED&page=1&limit=10");
   await expect(controls.getByRole("button", { name: "Previous" })).toBeDisabled();
+});
+
+test("university domain upsert preserves, replaces, clears, and retains failed edits", async ({ page }) => {
+  await mockBackend(page);
+  const bodies: unknown[] = [];
+  let fail = false;
+  await page.route("**/api/v1/admin/universities*", async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: { success: true, data: { universities: [{ _id: "uni", name: "Exact University", emailDomains: ["campus.edu.pk"] }] } } });
+    bodies.push(route.request().postDataJSON());
+    await route.fulfill(fail ? { status: 409, json: { success: false, message: "Domain already assigned to another university" } } : { json: { success: true, data: {} } });
+  });
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Universities", exact: true }).click();
+  for (const domains of [undefined, "new.edu.pk, students.new.edu.pk", ""]) {
+    await page.getByRole("button", { name: "Edit Exact University" }).click();
+    await expect(page.getByLabel("University name")).toHaveAttribute("readonly", "");
+    if (domains !== undefined) {
+      await page.getByLabel("Replace email domains").check();
+      await page.getByRole("textbox", { name: "Email domains", exact: true }).fill(domains);
+    }
+    await page.getByRole("button", { name: "Save university" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Add university" })).toBeVisible();
+  }
+  expect(bodies).toEqual([{ name: "Exact University" }, { name: "Exact University", emailDomains: ["new.edu.pk", "students.new.edu.pk"] }, { name: "Exact University", emailDomains: [] }]);
+  fail = true;
+  await page.getByRole("button", { name: "Edit Exact University" }).click();
+  await page.getByLabel("Replace email domains").check();
+  await page.getByRole("textbox", { name: "Email domains", exact: true }).fill("duplicate.edu.pk");
+  await page.getByRole("button", { name: "Save university" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.getByText("Domain already assigned to another university")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Email domains", exact: true })).toHaveValue("duplicate.edu.pk");
 });

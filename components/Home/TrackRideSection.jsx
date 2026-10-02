@@ -30,7 +30,7 @@ export default function TrackRideSection() {
         <FadeUp delay={0.1}>
           <div className="flex justify-center px-2 sm:px-6 lg:justify-start lg:px-8">
               <Image
-                src="/9.png"
+                src="/14.png"
                 alt="Raastah live tracking screen"
                 width={320}
                 height={640}
