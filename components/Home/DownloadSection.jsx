@@ -11,14 +11,14 @@ function DownloadSection() {
                                 "radial-gradient(circle at 50% 15%, #FFF6C7 0%, #F8D85A 30%, #D99A00 62%, #6B3F00 100%)",
                         }}>
                             <Image
-                                src="/GetApp_Mobile1.webp"
+                                src="/18.png"
                                 alt="App Download"
                                 width={350}
                                 height={350}
                                 className="absolute left-[-5%] -top-10 z-2 w-55 sm:w-75 lg:left-[-3%] xl:-top-23 xl:w-87.5 md:top-[-40%] lg:-top-44"
                             />
                             <Image
-                                src="/GetApp_Mobile2.webp"
+                                src="/17.png"
                                 alt="App Download"
                                 width={350}
                                 height={350}

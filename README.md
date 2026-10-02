@@ -73,3 +73,39 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## University email verification rollout
+
+`/verify-university-email` is public and only consumes a challenge after the visitor
+presses Verify. The token lives in component memory; the URL is cleaned before
+navigation links appear. Reloading the cleaned URL requires a fresh link. This
+route has no analytics, replay, service worker, or shared marketing navigation.
+It sends no-store/no-referrer headers and uses the existing same-origin API proxy.
+Current browser account status is fetched separately from `/api/v1/user/me`;
+historical email ownership never establishes current student verification.
+
+Administrators can edit **Universities → Edit → Replace email domains**. Leaving
+replacement unchecked preserves mappings, an array replaces them, and an empty
+replacement disables email verification. Existing names are submitted unchanged.
+
+Before production activation, operators must:
+
+- Deploy this page, then set the backend `UNIVERSITY_EMAIL_VERIFICATION_URL` to
+  `https://<actual-web-origin>/verify-university-email` (no query or fragment).
+- Redact token query strings for both this page and the verification API from
+  hosting, CDN, proxy, and backend access logs, including initial requests.
+  This repository cannot configure upstream logging. Disable query-string request
+  logging in local development too when testing with real challenges.
+- Exclude this route and verification API from any future analytics, session replay,
+  URL telemetry, and service-worker/CDN caches; verify deployed response headers.
+- Run backend `npm run migrate:indexes` and `npm run verify:indexes`, configure
+  real university domains, and verify email provider delivery before enabling it.
+
+This repository has no student onboarding, ride requests, sockets, or journey map
+client. Those sections of the handoff apply to the student application repository.
+No mobile deep-link configuration exists here, so the page tells visitors to return
+to the app manually rather than inventing a scheme. The page also offers browser
+sign-in when a profile check finds no session.
+
+The admin Playwright command above includes mocked public verification checks.
+These do not validate production email delivery or hosting log redaction.

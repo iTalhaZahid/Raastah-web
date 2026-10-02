@@ -12,14 +12,14 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if (!apiOrigin) throw new ApiError("The admin API is not configured. Set NEXT_PUBLIC_API_URL and restart the dashboard.", 0);
+  if (!apiOrigin) throw new ApiError("The API is not configured. Set NEXT_PUBLIC_API_URL and restart the website.", 0);
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (init.body) headers.set("Content-Type", "application/json");
   let response: Response;
   try {
     // Next rewrites forward to the backend while keeping session cookies first-party.
-    response = await fetch(path, { ...init, signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000), headers, credentials: "include", cache: "no-store" });
+    response = await fetch(path, { ...init, signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000), headers, credentials: init.credentials ?? "include", cache: "no-store" });
   } catch (error) {
     if (init.signal?.aborted) throw error;
     throw new ApiError("Cannot reach the API. Check your connection and the backend's allowed origins.", 0);
@@ -49,7 +49,16 @@ export function roles(role?: string) {
 
 export type Session = { user: { id: string; name: string; email: string; role?: string } } | null;
 export type VerificationStatus = "PENDING" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
-export type UserRow = {
+export type University = { _id: string; name: string; emailDomains?: string[] };
+export type UniversityEmailFields = {
+  verificationMethod?: "STUDENT_CARD" | "UNIVERSITY_EMAIL" | null;
+  universityEmail?: string | null;
+  universityEmailVerified?: boolean;
+  universityEmailVerifiedAt?: string | null;
+  universityEmailStudentId?: string | null;
+  universityDomain?: string | null;
+};
+export type UserRow = UniversityEmailFields & {
   _id: string; authUserId: string; fullName: string; email: string;
   verificationStatus: VerificationStatus; createdAt: string;
   isBlocked: boolean; isDeleted: boolean; ridePermanentlyBanned: boolean; rideSuspendedUntil?: string;
