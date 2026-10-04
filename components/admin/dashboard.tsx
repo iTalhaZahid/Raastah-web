@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Dialog } from "@base-ui/react/dialog";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ClipboardCheck, FileWarning, LogOut, Settings2, ShieldCheck, Users, ScrollText, GraduationCap } from "lucide-react";
 import { adminRoot, apiOrigin, ApiError, request, roles, type Session } from "@/lib/admin-api";
-import { UsersPanel, VerificationsPanel } from "./users";
-import { ReportsPanel, ConfigPanel, AuditsPanel } from "./operations";
-import { UniversitiesPanel } from "./universities";
 import { version } from "../../package.json";
+
+const UsersPanel = dynamic(() => import("./users").then(panel => panel.UsersPanel), { loading: () => <LoadingSkeleton label="Loading workspace…" /> });
+const VerificationsPanel = dynamic(() => import("./users").then(panel => panel.VerificationsPanel), { loading: () => <LoadingSkeleton label="Loading workspace…" /> });
+const ReportsPanel = dynamic(() => import("./operations").then(panel => panel.ReportsPanel), { loading: () => <LoadingSkeleton label="Loading workspace…" /> });
+const ConfigPanel = dynamic(() => import("./operations").then(panel => panel.ConfigPanel), { loading: () => <LoadingSkeleton layout="form" label="Loading workspace…" /> });
+const AuditsPanel = dynamic(() => import("./operations").then(panel => panel.AuditsPanel), { loading: () => <LoadingSkeleton label="Loading workspace…" /> });
+const UniversitiesPanel = dynamic(() => import("./universities").then(panel => panel.UniversitiesPanel), { loading: () => <LoadingSkeleton label="Loading workspace…" /> });
 
 type AdminContextValue = {
   isAdmin: boolean;
@@ -312,17 +317,17 @@ export default function AdminDashboard() {
   </>;
 
   if (checking || !session || !isStaff) return (
-    <div className="admin">{confirmationDialog}<main className="login"><div className="panel login-card stack">
-      <Link href="/" className="brand">Raastah<span style={{ color: "var(--admin-lime)" }}>.</span></Link>
-      <ShieldCheck size={32} color="#d4ff00" aria-hidden="true" />
-      <div><p className="eyebrow">Staff workspace</p><h1>Admin sign in</h1><p className="muted">Keep every road a little safer.</p></div>
+    <div className="admin">{confirmationDialog}<main className="login"><section className="login-story"><Link href="/" className="brand">raastah.</Link><div><p className="eyebrow">The people behind the journey</p><h2>A better campus<br/>commute starts<br/>with you.</h2><p className="muted">Support your student community. Review verifications, manage universities, and keep shared journeys running smoothly.</p></div><p className="login-story-footer">Your Campus. Your People. Your Raastah.</p></section><div className="panel login-card stack">
+      <Link href="/" className="brand">Raastah<span style={{ color: "var(--admin-accent)" }}>.</span></Link>
+      <ShieldCheck size={32} color="currentColor" aria-hidden="true" />
+      <div><p className="eyebrow">Staff workspace</p><h1>Admin sign in</h1><p className="muted">Welcome back. Let’s look after your community.</p></div>
       {feedback}
       {checking ? <LoadingSkeleton label="Checking your session…" /> : session ? <>
         <p role="alert">This account does not have admin or moderator access.</p>
         <button disabled={blocked} onClick={signOut}>Sign out</button>
       </> : <form onSubmit={signIn} className="stack">
         <fieldset disabled={blocked || !apiOrigin} className="stack">
-          <label>Email address<input name="email" type="email" autoComplete="username" placeholder="you@raastah.com" required /></label>
+          <label>Email address<input name="email" type="email" autoComplete="username" placeholder="you@raastah.app" spellCheck={false} autoCapitalize="none" required /></label>
           <label>Password<input name="password" type="password" autoComplete="current-password" required maxLength={128} /></label>
           <button className="primary" type="submit">{pending ? "Signing in…" : "Sign in to dashboard"}</button>
         </fieldset>
@@ -338,9 +343,9 @@ export default function AdminDashboard() {
       <div className="admin">
         <a className="skip" href="#admin-content">Skip to content</a>
         <div className="shell">
-          <aside>
-            <Link href="/" className="brand">Raastah<span style={{ color: "var(--admin-lime)" }}>.</span></Link>
-            <p className="eyebrow" style={{ marginTop: 8 }}>Control center</p>
+          <aside className="admin-sidebar">
+            <Link href="/" className="brand">Raastah<span style={{ color: "var(--admin-accent)" }}>.</span></Link>
+            <p className="eyebrow" style={{ marginTop: 8 }}>Community operations</p>
             <nav aria-label="Admin navigation">
               {tabs.filter((item) => !("admin" in item) || isAdmin).map(({ id, label, icon: Icon }) => (
                 <button key={id} aria-current={tab === id ? "page" : undefined} disabled={blocked} onClick={() => { setTab(id); setError(""); setNotice(""); }}>
@@ -352,7 +357,7 @@ export default function AdminDashboard() {
           <main id="admin-content" className="workspace">
             <div className="content stack">
               <header className="topbar row between">
-                <div className="row"><ShieldCheck size={18} color="#d4ff00" aria-hidden="true" /><span>Staff workspace</span></div>
+                <div className="row"><ShieldCheck size={18} color="currentColor" aria-hidden="true" /><span>Staff workspace</span></div>
                 <div className="row"><span>{session.user.name || session.user.email}</span><Badge status={isAdmin ? "ADMIN" : "MODERATOR"} /><button onClick={signOut} disabled={blocked}><LogOut size={16} aria-hidden="true" />Sign out</button></div>
               </header>
               <div className="row between">
