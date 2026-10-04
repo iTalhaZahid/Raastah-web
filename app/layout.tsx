@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./marketing.css";
 
 
 
@@ -27,8 +28,11 @@ const metropolis = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Raastah",
-  description: "Student Ride Sharing App",
+  metadataBase: new URL("https://raastah.app"),
+  title: "Raastah | Your Campus. Your People. Your Raastah.",
+  description: "Share rides with verified students going your way. Find, offer, and schedule campus rides with Raastah, the student ride-sharing app.",
+  applicationName: "Raastah",
+  icons: { icon: "/icon.png" },
 };
 
 export default function RootLayout({

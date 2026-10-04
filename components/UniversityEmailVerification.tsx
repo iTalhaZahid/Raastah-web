@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError, request, type UniversityEmailFields } from "@/lib/admin-api";
 
 type Profile = UniversityEmailFields & { email?: string; verificationStatus: string; onboardingCompleted?: boolean };
-const button = "rounded-lg bg-[#f5c542] px-5 py-3 font-semibold disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4";
+const button = "min-h-11 rounded-lg bg-black px-5 py-3 font-semibold text-white hover:bg-[#333333] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-black focus-visible:outline-offset-4";
 const recovery: Record<string, string> = {
   INVALID_VERIFICATION_TOKEN: "This link is invalid or has been replaced. Request a fresh email in the Raastah app.",
   VERIFICATION_TOKEN_EXPIRED: "This link has expired. Request a fresh email in the Raastah app.",

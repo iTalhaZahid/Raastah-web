@@ -1,45 +1,68 @@
+"use client";
 import Link from "next/link";
-import { Play } from "lucide-react";
-
+import Image from "next/image";
+import { Menu, X } from "lucide-react";
+import { useState } from "react";
+const links = [
+  ["Home", "/#home"],
+  ["Features", "/features"],
+  ["How It Works", "/#how-it-works"],
+  ["FAQs", "/#faqs"],
+];
 export function Navbar() {
+  const [open, setOpen] = useState(false);
   return (
-    <header className="absolute top-0 left-0 right-0 z-50 w-full pt-6">
-      <div className="container flex h-16 max-w-300 mx-auto items-center justify-between px-4 md:px-8">
+    <header
+      className="site-header"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setOpen(false);
+          document.querySelector<HTMLButtonElement>(".menu-toggle")?.focus();
+        }
+      }}
+    >
+      <a className="site-skip" href="#main-content">
+        Skip to content
+      </a>
+      <div className="site-width nav-inner">
+        <Link href="/" className="wordmark" aria-label="Raastah home">
+          <Image src="/icon.png" alt="" width={40} height={40} className="brand-logo" />
+          Raastah
 
-        <Link href="/" className="flex items-center">
-          <span className="text-3xl font-bold tracking-tight text-white">
-            Raastah
-          </span>
         </Link>
-
-        {/* Center Nav Pills */}
-        <nav className="hidden md:flex bg-[#1a1a1a]/80 backdrop-blur-md rounded-full p-1.5 border border-white/5">
-          <Link href="/#home" className="px-5 py-2 text-sm font-medium text-white bg-[#2a2a2a] rounded-full transition-colors">
-            Home
-          </Link>
-          <Link href="/#how-it-works" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white rounded-full transition-colors">
-            How it Works
-          </Link>
-          <Link href="/#features" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white rounded-full transition-colors">
-            Features
-          </Link>
-          <Link href="/#safety" className="px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white rounded-full transition-colors">
-            Track Ride
-          </Link>
+        <nav className="desktop-nav" aria-label="Main navigation">
+          {links.map(([name, url]) => (
+            <Link key={url} href={url}>
+              {name}
+            </Link>
+          ))}
         </nav>
-
-        {/* Right CTA */}
-        <div className="flex items-center">
-          <Link
-            href="/#download"
-            className="flex h-11 items-center justify-center gap-2 rounded-full bg-[#d4ff00] px-6 text-sm font-semibold text-black transition-colors hover:bg-[#c4ec00] shadow-[0_0_15px_rgba(212,255,0,0.3)]"
-          >
-            <Play className="w-4 h-4 fill-black" />
-            Google Play
-          </Link>
-        </div>
-
+        <Link className="nav-download" href="https://play.google.com/store/apps/details?id=app.raastah">
+          Get the app
+        </Link>
+        <button
+          className="menu-toggle"
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
+          onClick={() => setOpen(!open)}
+        >
+          {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+        </button>
       </div>
+      {open && (
+        <nav
+          id="mobile-navigation"
+          className="mobile-nav"
+          aria-label="Mobile navigation"
+        >
+          {links.map(([name, url]) => (
+            <Link key={url} href={url} onClick={() => setOpen(false)}>
+              {name}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }
