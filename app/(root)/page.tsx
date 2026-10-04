@@ -1,17 +1,12 @@
-import Hero from "@/components/Home/Hero";
-import Features from "@/components/Home/Features";
-import HowRaastahWorks from "@/components/Home/HowRaastahWorks";
-import TrackRideSection from "@/components/Home/TrackRideSection";
-import DownloadSection from "@/components/Home/DownloadSection";
+import LandingPage from "@/components/Home/LandingPage";
+import { createPageMetadata } from "@/lib/seo";
 
-export default function Home() {
-  return (
-    <div className="bg-[#050505]">
-      <Hero />
-      <HowRaastahWorks />
-      <TrackRideSection />
-      <Features />
-      <DownloadSection />
-    </div>
-  );
-}
+export const metadata = createPageMetadata({
+  title: "Raastah | Student Campus Rides Made Simple",
+  description:
+    "Find, offer, and schedule campus rides with verified students going your way. Share the journey with your university community.",
+  path: "/",
+  keywords: ["student rides", "campus rides", "university carpool", "shared rides"],
+});
+
+export default LandingPage;
